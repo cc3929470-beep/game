@@ -2,7 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # -----------------------------------------------------------------------------
-# 1. Streamlit 페이지 설정
+# 1. Streamlit 페이지 기본 설정
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="🚀 Streamlit Web FPS - Neon Strike 3D",
@@ -11,7 +11,7 @@ st.set_page_config(
 )
 
 st.title("💥 Neon Strike 3D (Streamlit Web FPS)")
-st.caption("Streamlit에서 실행되는 1인칭 3D FPS 게임입니다. 화면을 클릭해 마우스를 고정하고 적을 맞추세요!")
+st.caption("아래의 '게임 시작' 버튼을 눌러 마우스를 고정하고 1인칭 FPS 전투를 시작해보세요!")
 
 # -----------------------------------------------------------------------------
 # 2. Three.js 기반 WebGL FPS 게임 HTML/JS 소스
@@ -62,12 +62,12 @@ game_html = """
             z-index: 10;
         }
 
-        /* 게임 시작 안내 스크린 */
+        /* 게임 시작 안내 오버레이 스크린 */
         #blocker {
             position: absolute;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
+            background-color: rgba(5, 5, 20, 0.9);
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -75,17 +75,40 @@ game_html = """
             color: white;
             z-index: 20;
         }
+        
         #instructions {
             text-align: center;
-            cursor: pointer;
-            border: 3px solid #00ffcc;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 0 20px #00ffcc;
-            background: rgba(0,0,0,0.6);
+            border: 2px solid #00ffcc;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 0 30px rgba(0, 255, 204, 0.3);
+            background: rgba(10, 10, 30, 0.85);
+            max-width: 450px;
         }
-        h1 { margin: 0 0 10px 0; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; }
-        p { font-size: 18px; line-height: 1.6; }
+
+        /* 게임 시작 버튼 스타일링 */
+        #start-btn {
+            display: inline-block;
+            margin-top: 25px;
+            padding: 15px 35px;
+            font-size: 22px;
+            font-weight: bold;
+            color: #000;
+            background: linear-gradient(45deg, #00ffcc, #00bfff);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 15px #00ffcc;
+            transition: all 0.2s ease-in-out;
+        }
+
+        #start-btn:hover {
+            transform: scale(1.08);
+            box-shadow: 0 0 25px #00ffcc, 0 0 40px #00bfff;
+        }
+
+        h1 { margin: 0 0 15px 0; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; font-size: 28px; }
+        p { font-size: 16px; line-height: 1.7; color: #d0d0d0; }
     </style>
 </head>
 <body>
@@ -96,16 +119,17 @@ game_html = """
         🎯 SCORE: <span id="score">0</span>
     </div>
 
+    <!-- 시작 화면 및 버튼 -->
     <div id="blocker">
         <div id="instructions">
             <h1>💥 NEON STRIKE 3D 💥</h1>
-            <p>여기(검은 창 내부)를 클릭하여 게임 시작!</p>
             <p>
                 🕹️ <b>이동:</b> W, A, S, D<br>
                 🔫 <b>사격:</b> 마우스 왼쪽 클릭<br>
                 👀 <b>시점 전환:</b> 마우스 이동<br>
                 🛑 <b>일시정지:</b> ESC
             </p>
+            <button id="start-btn">🎮 게임 시작</button>
         </div>
     </div>
 
@@ -125,8 +149,10 @@ game_html = """
 
         let controls = new THREE.PointerLockControls(camera, document.body);
         let blocker = document.getElementById('blocker');
+        let startBtn = document.getElementById('start-btn');
 
-        blocker.addEventListener('click', () => controls.lock());
+        // 게임 시작 버튼 클릭 이벤트 연동
+        startBtn.addEventListener('click', () => controls.lock());
         controls.addEventListener('lock', () => blocker.style.display = 'none');
         controls.addEventListener('unlock', () => blocker.style.display = 'flex');
 
@@ -265,6 +291,6 @@ game_html = """
 """
 
 # -----------------------------------------------------------------------------
-# 3. Streamlit 임베딩 렌더링 (높이 700px)
+# 3. Streamlit 임베딩 렌더링
 # -----------------------------------------------------------------------------
-components.html(game_html, height=700)
+components.html(game_html, height=720)
