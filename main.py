@@ -2,141 +2,130 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Streamlit Web FPS", layout="wide")
-st.title("💥 Neon Strike 3D (y축 높이 고정 버전)")
-st.caption("🎮 조작법: 마우스 드래그 = 시점 전환 | 클릭 = 사격 | WASD = 평면 이동")
+st.title("💥 Neon Strike 3D (Streamlit 호환 버전)")
+st.caption("🎮 조작법: 마우스 드래그 = 시점 전환 | 클릭 = 사격 | WASD = 평면 이동 (y축 고정)")
 
-game_html = """
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; user-select: none; }
-        #crosshair {
-            position: absolute; top: 50%; left: 50%; width: 12px; height: 12px;
-            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
-        }
-        #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #00ffcc; }
-        #crosshair::before { top: 5px; left: 0; width: 12px; height: 2px; }
-        #crosshair::after { top: 0; left: 5px; width: 2px; height: 12px; }
-        #ui { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 20px; font-weight: bold; z-index: 10; }
-    </style>
-</head>
-<body>
-    <div id="crosshair"></div>
-    <div id="ui">🎯 SCORE: <span id="score">0</span></div>
+# 큰따옴표 3개 대신 괄호()와 이스케이프 문자로 안전하게 문자열 선언
+game_html = (
+    "<!DOCTYPE html>\n"
+    "<html lang=\"ko\">\n"
+    "<head>\n"
+    "    <meta charset=\"UTF-8\">\n"
+    "    <style>\n"
+    "        body { margin: 0; overflow: hidden; background-color: #000; font-family: sans-serif; user-select: none; }\n"
+    "        #crosshair {\n"
+    "            position: absolute; top: 50%; left: 50%; width: 12px; height: 12px;\n"
+    "            transform: translate(-50%, -50%); pointer-events: none; z-index: 10;\n"
+    "        }\n"
+    "        #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #00ffcc; }\n"
+    "        #crosshair::before { top: 5px; left: 0; width: 12px; height: 2px; }\n"
+    "        #crosshair::after { top: 0; left: 5px; width: 2px; height: 12px; }\n"
+    "        #ui { position: absolute; top: 20px; left: 20px; color: #fff; font-size: 20px; font-weight: bold; z-index: 10; }\n"
+    "    </style>\n"
+    "</head>\n"
+    "<body>\n"
+    "    <div id=\"crosshair\"></div>\n"
+    "    <div id=\"ui\">🎯 SCORE: <span id=\"score\">0</span></div>\n"
+    "    <script src=\"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js\"></script>\n"
+    "    <script src=\"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\"></script>\n"
+    "    <script>\n"
+    "        let scene = new THREE.Scene();\n"
+    "        scene.background = new THREE.Color(0x050515);\n"
+    "        scene.fog = new THREE.FogExp2(0x050515, 0.015);\n"
+    "        let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);\n"
+    "        let renderer = new THREE.WebGLRenderer({ antialias: true });\n"
+    "        renderer.setSize(window.innerWidth, window.innerHeight);\n"
+    "        document.body.appendChild(renderer.domElement);\n"
+    "        let controls = new THREE.OrbitControls(camera, renderer.domElement);\n"
+    "        controls.enablePan = false;\n"
+    "        controls.enableZoom = false;\n"
+    "        const PLAYER_HEIGHT = 2.0;\n"
+    "        camera.position.set(0, PLAYER_HEIGHT, 0.1);\n"
+    "        controls.target.set(0, PLAYER_HEIGHT, -10);\n"
+    "        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;\n"
+    "        document.addEventListener('keydown', (e) => {\n"
+    "            switch (e.code) {\n"
+    "                case 'KeyW': moveForward = true; break;\n"
+    "                case 'KeyA': moveLeft = true; break;\n"
+    "                case 'KeyS': moveBackward = true; break;\n"
+    "                case 'KeyD': moveRight = true; break;\n"
+    "            }\n"
+    "        });\n"
+    "        document.addEventListener('keyup', (e) => {\n"
+    "            switch (e.code) {\n"
+    "                case 'KeyW': moveForward = false; break;\n"
+    "                case 'KeyA': moveLeft = false; break;\n"
+    "                case 'KeyS': moveBackward = false; break;\n"
+    "                case 'KeyD': moveRight = false; break;\n"
+    "            }\n"
+    "        });\n"
+    "        scene.add(new THREE.AmbientLight(0xffffff, 0.3));\n"
+    "        let dirLight = new THREE.DirectionalLight(0xff00ff, 0.8);\n"
+    "        dirLight.position.set(20, 40, 20);\n"
+    "        scene.add(dirLight);\n"
+    "        scene.add(new THREE.GridHelper(200, 50, 0x00ffcc, 0xff00ff));\n"
+    "        let targets = [];\n"
+    "        let score = 0;\n"
+    "        for (let i = 0; i < 25; i++) {\n"
+    "            let wallGeo = new THREE.BoxGeometry(4, Math.random() * 8 + 4, 4);\n"
+    "            let wall = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0x111122 }));\n"
+    "            wall.position.set((Math.random() - 0.5) * 120, wallGeo.parameters.height / 2, (Math.random() - 0.5) * 120);\n"
+    "            scene.add(wall);\n"
+    "        }\n"
+    "        function createTarget() {\n"
+    "            let target = new THREE.Mesh(\n"
+    "                new THREE.SphereGeometry(1.5, 16, 16),\n"
+    "                new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.6 })\n"
+    "            );\n"
+    "            target.position.set((Math.random() - 0.5) * 80, Math.random() * 3 + 2, (Math.random() - 0.5) * 80);\n"
+    "            scene.add(target);\n"
+    "            targets.push(target);\n"
+    "        }\n"
+    "        for (let i = 0; i < 10; i++) createTarget();\n"
+    "        let gun = new THREE.Mesh(\n"
+    "            new THREE.BoxGeometry(0.3, 0.3, 1),\n"
+    "            new THREE.MeshStandardMaterial({ color: 0x333333 })\n"
+    "        );\n"
+    "        gun.position.set(0.4, -0.4, -0.8);\n"
+    "        camera.add(gun);\n"
+    "        scene.add(camera);\n"
+    "        let raycaster = new THREE.Raycaster();\n"
+    "        window.addEventListener('contextmenu', e => e.preventDefault());\n"
+    "        document.addEventListener('mousedown', (e) => {\n"
+    "            gun.position.z = -0.6;\n"
+    "            setTimeout(() => gun.position.z = -0.8, 50);\n"
+    "            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);\n"
+    "            let intersects = raycaster.intersectObjects(targets);\n"
+    "            if (intersects.length > 0) {\n"
+    "                let hitTarget = intersects[0].object;\n"
+    "                scene.remove(hitTarget);\n"
+    "                targets = targets.filter(t => t !== hitTarget);\n"
+    "                score += 100;\n"
+    "                document.getElementById('score').innerText = score;\n"
+    "                setTimeout(createTarget, 1000);\n"
+    "            }\n"
+    "        });\n"
+    "        function animate() {\n"
+    "            requestAnimationFrame(animate);\n"
+    "            let moveSpeed = 0.2;\n"
+    "            let dir = new THREE.Vector3();\n"
+    "            camera.getWorldDirection(dir);\n"
+    "            dir.y = 0;\n"
+    "            dir.normalize();\n"
+    "            let sideDir = new THREE.Vector3(-dir.z, 0, dir.x);\n"
+    "            if (moveForward) { camera.position.addScaledVector(dir, moveSpeed); controls.target.addScaledVector(dir, moveSpeed); }\n"
+    "            if (moveBackward) { camera.position.addScaledVector(dir, -moveSpeed); controls.target.addScaledVector(dir, -moveSpeed); }\n"
+    "            if (moveLeft) { camera.position.addScaledVector(sideDir, -moveSpeed); controls.target.addScaledVector(sideDir, -moveSpeed); }\n"
+    "            if (moveRight) { camera.position.addScaledVector(sideDir, moveSpeed); controls.target.addScaledVector(sideDir, moveSpeed); }\n"
+    "            camera.position.y = PLAYER_HEIGHT;\n"
+    "            controls.target.y = PLAYER_HEIGHT;\n"
+    "            controls.update();\n"
+    "            renderer.render(scene, camera);\n"
+    "        }\n"
+    "        animate();\n"
+    "    </script>\n"
+    "</body>\n"
+    "</html>\n"
+)
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
-    <script>
-        let scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050515);
-        scene.fog = new THREE.FogExp2(0x050515, 0.015);
-
-        let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        let renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
-
-        let controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enablePan = false;
-        controls.enableZoom = false;
-        
-        const PLAYER_HEIGHT = 2.0;
-
-        camera.position.set(0, PLAYER_HEIGHT, 0.1);
-        controls.target.set(0, PLAYER_HEIGHT, -10);
-
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-
-        document.addEventListener('keydown', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyD': moveRight = true; break;
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            switch (e.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyD': moveRight = false; break;
-            }
-        });
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-        let dirLight = new THREE.DirectionalLight(0xff00ff, 0.8);
-        dirLight.position.set(20, 40, 20);
-        scene.add(dirLight);
-        scene.add(new THREE.GridHelper(200, 50, 0x00ffcc, 0xff00ff));
-
-        let targets = [];
-        let score = 0;
-
-        for (let i = 0; i < 25; i++) {
-            let wallGeo = new THREE.BoxGeometry(4, Math.random() * 8 + 4, 4);
-            let wall = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0x111122 }));
-            wall.position.set((Math.random() - 0.5) * 120, wallGeo.parameters.height / 2, (Math.random() - 0.5) * 120);
-            scene.add(wall);
-        }
-
-        function createTarget() {
-            let target = new THREE.Mesh(
-                new THREE.SphereGeometry(1.5, 16, 16),
-                new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.6 })
-            );
-            target.position.set((Math.random() - 0.5) * 80, Math.random() * 3 + 2, (Math.random() - 0.5) * 80);
-            scene.add(target);
-            targets.push(target);
-        }
-
-        for (let i = 0; i < 10; i++) createTarget();
-
-        let gun = new THREE.Mesh(
-            new THREE.BoxGeometry(0.3, 0.3, 1),
-            new THREE.MeshStandardMaterial({ color: 0x333333 })
-        );
-        gun.position.set(0.4, -0.4, -0.8);
-        camera.add(gun);
-        scene.add(camera);
-
-        let raycaster = new THREE.Raycaster();
-
-        window.addEventListener('contextmenu', e => e.preventDefault());
-        document.addEventListener('mousedown', (e) => {
-            gun.position.z = -0.6;
-            setTimeout(() => gun.position.z = -0.8, 50);
-
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
-            let intersects = raycaster.intersectObjects(targets);
-
-            if (intersects.length > 0) {
-                let hitTarget = intersects[0].object;
-                scene.remove(hitTarget);
-                targets = targets.filter(t => t !== hitTarget);
-                score += 100;
-                document.getElementById('score').innerText = score;
-                setTimeout(createTarget, 1000);
-            }
-        });
-
-        function animate() {
-            requestAnimationFrame(animate);
-
-            let moveSpeed = 0.2;
-            let dir = new THREE.Vector3();
-            camera.getWorldDirection(dir);
-            
-            dir.y = 0;
-            dir.normalize();
-
-            let sideDir = new THREE.Vector3(-dir.z, 0, dir.x);
-
-            if (moveForward) { camera.position.addScaledVector(dir, moveSpeed); controls.target.addScaledVector(dir, moveSpeed); }
-            if (moveBackward) { camera.position.addScaledVector(dir, -moveSpeed); controls.target.addScaledVector(dir, -moveSpeed); }
-            if (moveLeft) { camera.position.addScaledVector(sideDir, -moveSpeed); controls.target.addScaledVector(sideDir, -moveSpeed); }
-            if (moveRight) { camera.position.addScaledVector(sideDir, moveSpeed); controls.target.addScaledVector(sideDir, moveSpeed
+components.html(game_html, height=720)
