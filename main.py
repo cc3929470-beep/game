@@ -8,7 +8,7 @@ st.set_page_config(
 )
 
 st.title("💥 Neon Strike 3D (Streamlit Web FPS)")
-st.caption("버튼 클릭 후 화면이 반응하지 않으면, 화면 내부 아무 곳이나 1회 클릭 후 다시 시도해보세요.")
+st.caption("화면 내부를 아무 곳이나 클릭하면 바로 마우스가 고정되어 FPS 게임을 즐길 수 있습니다! (ESC: 일시정지)")
 
 game_html = """
 <!DOCTYPE html>
@@ -24,6 +24,7 @@ game_html = """
             user-select: none;
         }
 
+        /* 조준점 */
         #crosshair {
             position: absolute;
             top: 50%;
@@ -43,6 +44,7 @@ game_html = """
         #crosshair::before { top: 5px; left: 0; width: 12px; height: 2px; }
         #crosshair::after { top: 0; left: 5px; width: 2px; height: 12px; }
 
+        /* UI 점수판 */
         #ui {
             position: absolute;
             top: 20px;
@@ -54,66 +56,26 @@ game_html = """
             z-index: 10;
         }
 
-        #blocker {
+        /* 시작 안내 자막 (상단 작게 표시) */
+        #hint {
             position: absolute;
+            bottom: 20px;
             width: 100%;
-            height: 100%;
-            background-color: rgba(5, 5, 20, 0.9);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            z-index: 20;
-        }
-        
-        #instructions {
             text-align: center;
-            border: 2px solid #00ffcc;
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 0 30px rgba(0, 255, 204, 0.3);
-            background: rgba(10, 10, 30, 0.85);
-            max-width: 450px;
-        }
-
-        #start-btn {
-            display: inline-block;
-            margin-top: 25px;
-            padding: 15px 35px;
-            font-size: 22px;
+            color: #00ffcc;
+            font-size: 16px;
             font-weight: bold;
-            color: #000;
-            background: linear-gradient(45deg, #00ffcc, #00bfff);
-            border: none;
-            border-radius: 30px;
-            cursor: pointer;
-            box-shadow: 0 0 15px #00ffcc;
+            text-shadow: 0 0 8px #00ffcc;
+            z-index: 10;
+            pointer-events: none;
         }
-
-        h1 { margin: 0 0 15px 0; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; font-size: 28px; }
-        p { font-size: 16px; line-height: 1.7; color: #d0d0d0; }
-        #err-msg { color: #ff3366; font-size: 14px; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
     <div id="crosshair"></div>
     <div id="ui">🎯 SCORE: <span id="score">0</span></div>
-
-    <div id="blocker">
-        <div id="instructions">
-            <h1>💥 NEON STRIKE 3D 💥</h1>
-            <p>
-                🕹️ <b>이동:</b> W, A, S, D<br>
-                🔫 <b>사격:</b> 마우스 왼쪽 클릭<br>
-                👀 <b>시점 전환:</b> 마우스 이동<br>
-                🛑 <b>일시정지:</b> ESC
-            </p>
-            <button id="start-btn">🎮 게임 시작</button>
-            <div id="err-msg">⚠️ 마우스 고정에 실패했습니다. 박스 내부를 클릭한 뒤 다시 눌러주세요.</div>
-        </div>
-    </div>
+    <div id="hint">화면을 클릭하여 시점을 고정하세요! (WASD: 이동, 클릭: 사격)</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
@@ -129,30 +91,20 @@ game_html = """
         document.body.appendChild(renderer.domElement);
 
         let controls = new THREE.PointerLockControls(camera, document.body);
-        let blocker = document.getElementById('blocker');
-        let startBtn = document.getElementById('start-btn');
-        let errMsg = document.getElementById('err-msg');
+        let hint = document.getElementById('hint');
 
-        startBtn.addEventListener('click', () => {
-            try {
-                controls.lock();
-            } catch (e) {
-                errMsg.style.display = 'block';
-            }
+        // 화면 클릭 시 마우스 가두기 (PointerLock)
+        document.body.addEventListener('click', () => {
+            controls.lock();
         });
 
         controls.addEventListener('lock', () => {
-            blocker.style.display = 'none';
-            errMsg.style.display = 'none';
+            hint.style.display = 'none';
         });
 
         controls.addEventListener('unlock', () => {
-            blocker.style.display = 'flex';
-        });
-
-        // 예외 처리
-        controls.addEventListener('error', () => {
-            errMsg.style.display = 'block';
+            hint.style.display = 'block';
+            hint.innerText = "클릭하여 게임 다시 시작";
         });
 
         scene.add(controls.getObject());
@@ -281,5 +233,4 @@ game_html = """
 </html>
 """
 
-# scrolling=True 또는 allow_scripts 기본 탑재
 components.html(game_html, height=720, scrolling=False)
