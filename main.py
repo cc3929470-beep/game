@@ -1,9 +1,26 @@
+import streamlit as st
+import streamlit.components.v1 as components
+
+# -----------------------------------------------------------------------------
+# 1. Streamlit 페이지 설정
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="🚀 Streamlit Web FPS - Neon Strike 3D",
+    page_icon="💥",
+    layout="wide"
+)
+
+st.title("💥 Neon Strike 3D (Streamlit Web FPS)")
+st.caption("Streamlit에서 실행되는 1인칭 3D FPS 게임입니다. 화면을 클릭해 마우스를 고정하고 적을 맞추세요!")
+
+# -----------------------------------------------------------------------------
+# 2. Three.js 기반 WebGL FPS 게임 HTML/JS 소스
+# -----------------------------------------------------------------------------
+game_html = """
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚀 Neon Strike 3D - Web FPS</title>
     <style>
         body {
             margin: 0;
@@ -82,7 +99,7 @@
     <div id="blocker">
         <div id="instructions">
             <h1>💥 NEON STRIKE 3D 💥</h1>
-            <p>화면을 클릭하여 전투 시작!</p>
+            <p>여기(검은 창 내부)를 클릭하여 게임 시작!</p>
             <p>
                 🕹️ <b>이동:</b> W, A, S, D<br>
                 🔫 <b>사격:</b> 마우스 왼쪽 클릭<br>
@@ -96,9 +113,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
 
     <script>
-        // -------------------------------------------------------------
-        // 1. 기본 씬 설정 및 카메라, 렌더러 생성
-        // -------------------------------------------------------------
         let scene = new THREE.Scene();
         scene.background = new THREE.Color(0x050515);
         scene.fog = new THREE.FogExp2(0x050515, 0.015);
@@ -109,9 +123,6 @@
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // -------------------------------------------------------------
-        // 2. 조작계 (PointerLockControls) 설정
-        // -------------------------------------------------------------
         let controls = new THREE.PointerLockControls(camera, document.body);
         let blocker = document.getElementById('blocker');
 
@@ -121,7 +132,6 @@
 
         scene.add(controls.getObject());
 
-        // 이동 관련 변수
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
         let velocity = new THREE.Vector3();
         let direction = new THREE.Vector3();
@@ -145,9 +155,6 @@
             }
         });
 
-        // -------------------------------------------------------------
-        // 3. 조명 및 분위기 연출 (네온/サイバーパンク 분위기)
-        // -------------------------------------------------------------
         let ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
         scene.add(ambientLight);
 
@@ -155,14 +162,12 @@
         dirLight.position.set(20, 40, 20);
         scene.add(dirLight);
 
-        // 바닥 격자 및 장애물 생성
         let gridHelper = new THREE.GridHelper(200, 50, 0x00ffcc, 0xff00ff);
         scene.add(gridHelper);
 
         let targets = [];
         let score = 0;
 
-        // 벽 및 구조물 배치
         for (let i = 0; i < 30; i++) {
             let wallGeo = new THREE.BoxGeometry(4, Math.random() * 8 + 4, 4);
             let wallMat = new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.3 });
@@ -171,7 +176,6 @@
             scene.add(wall);
         }
 
-        // Target (적/타겟 생성 함수)
         function createTarget() {
             let geo = new THREE.SphereGeometry(1.5, 16, 16);
             let mat = new THREE.MeshStandardMaterial({ 
@@ -187,10 +191,6 @@
 
         for (let i = 0; i < 10; i++) createTarget();
 
-        // -------------------------------------------------------------
-        // 4. 총기 및 사격 기능 (Raycaster)
-        // -------------------------------------------------------------
-        // 총기 3D 모형 (1인칭 손)
         let gunGeo = new THREE.BoxGeometry(0.3, 0.3, 1);
         let gunMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
         let gun = new THREE.Mesh(gunGeo, gunMat);
@@ -202,19 +202,69 @@
         document.addEventListener('mousedown', (e) => {
             if (!controls.isLocked || e.button !== 0) return;
 
-            // 사격 이펙트 (총 반동)
             gun.position.z = -0.6;
             setTimeout(() => gun.position.z = -0.8, 50);
 
-            // 화면 중앙(조준점) 방향으로 레이저 발사
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             let intersects = raycaster.intersectObjects(targets);
 
             if (intersects.length > 0) {
                 let hitTarget = intersects[0].object;
                 
-                // 파괴 피드백 (이펙트)
                 scene.remove(hitTarget);
                 targets = targets.filter(t => t !== hitTarget);
 
-                score += 100
+                score += 100;
+                document.getElementById('score').innerText = score;
+
+                setTimeout(createTarget, 1000);
+            }
+        });
+
+        controls.getObject().position.y = 2;
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let time = performance.now();
+            let delta = (time - prevTime) / 1000;
+
+            if (controls.isLocked) {
+                velocity.x -= velocity.x * 10.0 * delta;
+                velocity.z -= velocity.z * 10.0 * delta;
+
+                direction.z = Number(moveForward) - Number(moveBackward);
+                direction.x = Number(moveRight) - Number(moveLeft);
+                direction.normalize();
+
+                if (moveForward || moveBackward) velocity.z -= direction.z * 40.0 * delta;
+                if (moveLeft || moveRight) velocity.x -= direction.x * 40.0 * delta;
+
+                controls.moveRight(-velocity.x * delta);
+                controls.moveForward(-velocity.z * delta);
+            }
+
+            targets.forEach((target, index) => {
+                target.position.y += Math.sin(time * 0.003 + index) * 0.01;
+            });
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
+"""
+
+# -----------------------------------------------------------------------------
+# 3. Streamlit 임베딩 렌더링 (높이 700px)
+# -----------------------------------------------------------------------------
+components.html(game_html, height=700)
