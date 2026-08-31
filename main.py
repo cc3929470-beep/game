@@ -1,21 +1,15 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-# -----------------------------------------------------------------------------
-# 1. Streamlit 페이지 기본 설정
-# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="🚀 Streamlit Web FPS - Neon Strike 3D",
+    page_title="🚀 Streamlit Web FPS",
     page_icon="💥",
     layout="wide"
 )
 
 st.title("💥 Neon Strike 3D (Streamlit Web FPS)")
-st.caption("아래의 '게임 시작' 버튼을 눌러 마우스를 고정하고 1인칭 FPS 전투를 시작해보세요!")
+st.caption("버튼 클릭 후 화면이 반응하지 않으면, 화면 내부 아무 곳이나 1회 클릭 후 다시 시도해보세요.")
 
-# -----------------------------------------------------------------------------
-# 2. Three.js 기반 WebGL FPS 게임 HTML/JS 소스
-# -----------------------------------------------------------------------------
 game_html = """
 <!DOCTYPE html>
 <html lang="ko">
@@ -30,7 +24,6 @@ game_html = """
             user-select: none;
         }
 
-        /* 크로스헤어 (조준점) */
         #crosshair {
             position: absolute;
             top: 50%;
@@ -50,7 +43,6 @@ game_html = """
         #crosshair::before { top: 5px; left: 0; width: 12px; height: 2px; }
         #crosshair::after { top: 0; left: 5px; width: 2px; height: 12px; }
 
-        /* UI 오버레이 */
         #ui {
             position: absolute;
             top: 20px;
@@ -62,7 +54,6 @@ game_html = """
             z-index: 10;
         }
 
-        /* 게임 시작 안내 오버레이 스크린 */
         #blocker {
             position: absolute;
             width: 100%;
@@ -86,7 +77,6 @@ game_html = """
             max-width: 450px;
         }
 
-        /* 게임 시작 버튼 스타일링 */
         #start-btn {
             display: inline-block;
             margin-top: 25px;
@@ -99,27 +89,18 @@ game_html = """
             border-radius: 30px;
             cursor: pointer;
             box-shadow: 0 0 15px #00ffcc;
-            transition: all 0.2s ease-in-out;
-        }
-
-        #start-btn:hover {
-            transform: scale(1.08);
-            box-shadow: 0 0 25px #00ffcc, 0 0 40px #00bfff;
         }
 
         h1 { margin: 0 0 15px 0; color: #00ffcc; text-shadow: 0 0 10px #00ffcc; font-size: 28px; }
         p { font-size: 16px; line-height: 1.7; color: #d0d0d0; }
+        #err-msg { color: #ff3366; font-size: 14px; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
     <div id="crosshair"></div>
-    
-    <div id="ui">
-        🎯 SCORE: <span id="score">0</span>
-    </div>
+    <div id="ui">🎯 SCORE: <span id="score">0</span></div>
 
-    <!-- 시작 화면 및 버튼 -->
     <div id="blocker">
         <div id="instructions">
             <h1>💥 NEON STRIKE 3D 💥</h1>
@@ -130,6 +111,7 @@ game_html = """
                 🛑 <b>일시정지:</b> ESC
             </p>
             <button id="start-btn">🎮 게임 시작</button>
+            <div id="err-msg">⚠️ 마우스 고정에 실패했습니다. 박스 내부를 클릭한 뒤 다시 눌러주세요.</div>
         </div>
     </div>
 
@@ -144,17 +126,34 @@ game_html = """
         let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         let renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
         let controls = new THREE.PointerLockControls(camera, document.body);
         let blocker = document.getElementById('blocker');
         let startBtn = document.getElementById('start-btn');
+        let errMsg = document.getElementById('err-msg');
 
-        // 게임 시작 버튼 클릭 이벤트 연동
-        startBtn.addEventListener('click', () => controls.lock());
-        controls.addEventListener('lock', () => blocker.style.display = 'none');
-        controls.addEventListener('unlock', () => blocker.style.display = 'flex');
+        startBtn.addEventListener('click', () => {
+            try {
+                controls.lock();
+            } catch (e) {
+                errMsg.style.display = 'block';
+            }
+        });
+
+        controls.addEventListener('lock', () => {
+            blocker.style.display = 'none';
+            errMsg.style.display = 'none';
+        });
+
+        controls.addEventListener('unlock', () => {
+            blocker.style.display = 'flex';
+        });
+
+        // 예외 처리
+        controls.addEventListener('error', () => {
+            errMsg.style.display = 'block';
+        });
 
         scene.add(controls.getObject());
 
@@ -181,7 +180,7 @@ game_html = """
             }
         });
 
-        let ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        let ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
         scene.add(ambientLight);
 
         let dirLight = new THREE.DirectionalLight(0xff00ff, 0.8);
@@ -194,9 +193,9 @@ game_html = """
         let targets = [];
         let score = 0;
 
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 25; i++) {
             let wallGeo = new THREE.BoxGeometry(4, Math.random() * 8 + 4, 4);
-            let wallMat = new THREE.MeshStandardMaterial({ color: 0x111122, roughness: 0.3 });
+            let wallMat = new THREE.MeshStandardMaterial({ color: 0x111122 });
             let wall = new THREE.Mesh(wallGeo, wallMat);
             wall.position.set((Math.random() - 0.5) * 120, wallGeo.parameters.height / 2, (Math.random() - 0.5) * 120);
             scene.add(wall);
@@ -204,11 +203,7 @@ game_html = """
 
         function createTarget() {
             let geo = new THREE.SphereGeometry(1.5, 16, 16);
-            let mat = new THREE.MeshStandardMaterial({ 
-                color: 0xff0055, 
-                emissive: 0xff0055, 
-                emissiveIntensity: 0.6 
-            });
+            let mat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.6 });
             let target = new THREE.Mesh(geo, mat);
             target.position.set((Math.random() - 0.5) * 80, Math.random() * 3 + 2, (Math.random() - 0.5) * 80);
             scene.add(target);
@@ -218,7 +213,7 @@ game_html = """
         for (let i = 0; i < 10; i++) createTarget();
 
         let gunGeo = new THREE.BoxGeometry(0.3, 0.3, 1);
-        let gunMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
+        let gunMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
         let gun = new THREE.Mesh(gunGeo, gunMat);
         gun.position.set(0.4, -0.4, -0.8);
         camera.add(gun);
@@ -236,13 +231,10 @@ game_html = """
 
             if (intersects.length > 0) {
                 let hitTarget = intersects[0].object;
-                
                 scene.remove(hitTarget);
                 targets = targets.filter(t => t !== hitTarget);
-
                 score += 100;
                 document.getElementById('score').innerText = score;
-
                 setTimeout(createTarget, 1000);
             }
         });
@@ -251,7 +243,6 @@ game_html = """
 
         function animate() {
             requestAnimationFrame(animate);
-
             let time = performance.now();
             let delta = (time - prevTime) / 1000;
 
@@ -290,7 +281,5 @@ game_html = """
 </html>
 """
 
-# -----------------------------------------------------------------------------
-# 3. Streamlit 임베딩 렌더링
-# -----------------------------------------------------------------------------
-components.html(game_html, height=720)
+# scrolling=True 또는 allow_scripts 기본 탑재
+components.html(game_html, height=720, scrolling=False)
