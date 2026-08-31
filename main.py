@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="Streamlit Web FPS", layout="wide")
 st.title("💥 Neon Strike 3D (y축 높이 고정 버전)")
-st.caption("🎮 조작법: 마우스 드래그 = 시점 전환 | 클릭 = 사격 | WASD = 평면 이동 ($y$축 높이 고정)")
+st.caption("🎮 조작법: 마우스 드래그 = 시점 전환 | 클릭 = 사격 | WASD = 평면 이동")
 
 game_html = """
 <!DOCTYPE html>
@@ -43,7 +43,6 @@ game_html = """
         controls.enablePan = false;
         controls.enableZoom = false;
         
-        // 고정시킬 눈높이 (y축 고정값)
         const PLAYER_HEIGHT = 2.0;
 
         camera.position.set(0, PLAYER_HEIGHT, 0.1);
@@ -73,4 +72,71 @@ game_html = """
         let dirLight = new THREE.DirectionalLight(0xff00ff, 0.8);
         dirLight.position.set(20, 40, 20);
         scene.add(dirLight);
-        scene.add(new THREE.GridHelper(200
+        scene.add(new THREE.GridHelper(200, 50, 0x00ffcc, 0xff00ff));
+
+        let targets = [];
+        let score = 0;
+
+        for (let i = 0; i < 25; i++) {
+            let wallGeo = new THREE.BoxGeometry(4, Math.random() * 8 + 4, 4);
+            let wall = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({ color: 0x111122 }));
+            wall.position.set((Math.random() - 0.5) * 120, wallGeo.parameters.height / 2, (Math.random() - 0.5) * 120);
+            scene.add(wall);
+        }
+
+        function createTarget() {
+            let target = new THREE.Mesh(
+                new THREE.SphereGeometry(1.5, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 0.6 })
+            );
+            target.position.set((Math.random() - 0.5) * 80, Math.random() * 3 + 2, (Math.random() - 0.5) * 80);
+            scene.add(target);
+            targets.push(target);
+        }
+
+        for (let i = 0; i < 10; i++) createTarget();
+
+        let gun = new THREE.Mesh(
+            new THREE.BoxGeometry(0.3, 0.3, 1),
+            new THREE.MeshStandardMaterial({ color: 0x333333 })
+        );
+        gun.position.set(0.4, -0.4, -0.8);
+        camera.add(gun);
+        scene.add(camera);
+
+        let raycaster = new THREE.Raycaster();
+
+        window.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('mousedown', (e) => {
+            gun.position.z = -0.6;
+            setTimeout(() => gun.position.z = -0.8, 50);
+
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            let intersects = raycaster.intersectObjects(targets);
+
+            if (intersects.length > 0) {
+                let hitTarget = intersects[0].object;
+                scene.remove(hitTarget);
+                targets = targets.filter(t => t !== hitTarget);
+                score += 100;
+                document.getElementById('score').innerText = score;
+                setTimeout(createTarget, 1000);
+            }
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            let moveSpeed = 0.2;
+            let dir = new THREE.Vector3();
+            camera.getWorldDirection(dir);
+            
+            dir.y = 0;
+            dir.normalize();
+
+            let sideDir = new THREE.Vector3(-dir.z, 0, dir.x);
+
+            if (moveForward) { camera.position.addScaledVector(dir, moveSpeed); controls.target.addScaledVector(dir, moveSpeed); }
+            if (moveBackward) { camera.position.addScaledVector(dir, -moveSpeed); controls.target.addScaledVector(dir, -moveSpeed); }
+            if (moveLeft) { camera.position.addScaledVector(sideDir, -moveSpeed); controls.target.addScaledVector(sideDir, -moveSpeed); }
+            if (moveRight) { camera.position.addScaledVector(sideDir, moveSpeed); controls.target.addScaledVector(sideDir, moveSpeed
