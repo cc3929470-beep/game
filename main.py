@@ -76,7 +76,6 @@ game_html = """
         window.focus();
         document.addEventListener('contextmenu', event => event.preventDefault());
 
-        // --- 절차적 고해상도 텍스처 생성 엔진 ---
         function generateProceduralTexture(type) {
             let canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
@@ -124,7 +123,6 @@ game_html = """
         let scene = new THREE.Scene();
         scene.fog = new THREE.FogExp2(0x1e293b, 0.015);
 
-        // 스카이돔
         let skyGeo = new THREE.SphereGeometry(400, 32, 16);
         let skyMat = new THREE.ShaderMaterial({
             vertexShader: `
@@ -156,7 +154,6 @@ game_html = """
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
-        // 초고화질 그래픽 설정
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -167,13 +164,12 @@ game_html = """
         const PLAYER_RADIUS = 0.8;
         camera.position.set(0, PLAYER_HEIGHT, 0);
 
-        // 점프 및 물리 변수 추가
+        // 물리 변수 조정 (점프 높이 감소)
         let yVelocity = 0;
         let isGrounded = true;
-        const JUMP_FORCE = 0.22;
+        const JUMP_FORCE = 0.14; // 살짝 높이 감축 (기존 0.22)
         const GRAVITY = 0.009;
 
-        // 시선 전환 조작
         let pitch = 0, yaw = 0;
         let isMouseDown = false;
         let prevMousePos = { x: 0, y: 0 };
@@ -202,7 +198,6 @@ game_html = """
             camera.quaternion.setFromEuler(euler);
         });
 
-        // 광원 연산
         scene.add(new THREE.AmbientLight(0x64748b, 0.7));
         let sun = new THREE.DirectionalLight(0xfba518, 2.2);
         sun.position.set(60, 80, 40);
@@ -216,7 +211,6 @@ game_html = """
         sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
-        // 기본 재질 정의
         let bldgMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.8, metalness: 0.1 });
         let heavySteel = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.9 });
         let chromeMetal = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.1, metalness: 0.95 });
@@ -227,7 +221,6 @@ game_html = """
         let signNeon = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 4.0 });
         let fireEmissive = new THREE.MeshStandardMaterial({ color: 0xff4500, emissive: 0xff4500, emissiveIntensity: 3.5 });
 
-        // 바닥 생성
         const MAP_LIMIT = 38;
         let floorMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.9, metalness: 0.1 });
         let floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
@@ -235,7 +228,6 @@ game_html = """
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // --- 통합 충돌 판정 시스템 ---
         let colliders = [];
 
         function addBoxCollider(x, z, w, d) {
@@ -289,6 +281,7 @@ game_html = """
             }
         }
 
+        // 건물 생성
         createBuildingBlock(-25, -22, 18, 18, 18);
         createBuildingBlock(-25, 0, 18, 22, 16);
         createBuildingBlock(-25, 22, 18, 16, 18);
@@ -316,7 +309,7 @@ game_html = """
 
             truck.position.set(x, 0, z);
             truck.rotation.y = angle;
-            truck.rotation.z = 0.2;
+            truck.rotation.z = 0.1;
             scene.add(truck);
 
             addBoxCollider(x, z, 3.4, 6.2);
@@ -351,46 +344,61 @@ game_html = """
             addBoxCollider(x, z, 1.2, 1.2);
         }
 
-        function createStreetLight(x, z) {
+        function createStreetLight(x, z, dirZ = -1) {
             let pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6.0, 12), darkIron);
             pole.position.set(x, 3.0, z);
             pole.castShadow = true;
             scene.add(pole);
 
             let lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 1.2), heavySteel);
-            lamp.position.set(x, 6.0, z - 0.4);
+            lamp.position.set(x, 6.0, z + dirZ * 0.4);
             scene.add(lamp);
 
-            let light = new THREE.SpotLight(0xffa500, 3.0, 15, Math.PI / 4, 0.5);
-            light.position.set(x, 5.9, z - 0.4);
-            light.target.position.set(x, 0, z - 2.0);
+            let light = new THREE.SpotLight(0xffa500, 2.5, 14, Math.PI / 4, 0.5);
+            light.position.set(x, 5.9, z + dirZ * 0.4);
+            light.target.position.set(x, 0, z + dirZ * 2.0);
             scene.add(light);
             scene.add(light.target);
 
             addBoxCollider(x, z, 0.8, 0.8);
         }
 
+        // 트럭 6개 배치
         createDestroyedTruck(-5, 6, 0.4);
         createDestroyedTruck(7, -10, -0.6);
         createDestroyedTruck(-12, 22, 1.2);
         createDestroyedTruck(10, -26, -0.3);
+        createDestroyedTruck(-8, -20, 0.8);
+        createDestroyedTruck(12, 18, -1.1);
 
         createBarricade(-2, -18, 0.2);
         createBarricade(3, 16, -0.4);
         createBarricade(-13, 0, 1.57);
         createBarricade(13, 0, 1.57);
-        createBarricade(-5, -30, 0.8);
-        createBarricade(8, 28, -0.5);
 
         createBurningBarrel(-8, -4);
         createBurningBarrel(9, 8);
         createBurningBarrel(-3, 25);
         createBurningBarrel(4, -22);
 
-        createStreetLight(-11, -12);
-        createStreetLight(11, 12);
-        createStreetLight(-11, 12);
-        createStreetLight(11, -12);
+        // 건물당 2개씩 전면 가로등 + 건물 사이 골목 + 건물 뒤편 가로등 배치
+        // 좌측 건물군 전면 (x = -14)
+        createStreetLight(-14, -26, 1); createStreetLight(-14, -18, 1);
+        createStreetLight(-14, -4, 1);  createStreetLight(-14, 4, 1);
+        createStreetLight(-14, 18, 1);  createStreetLight(-14, 26, 1);
+
+        // 우측 건물군 전면 (x = 14)
+        createStreetLight(14, -26, 1);  createStreetLight(14, -18, 1);
+        createStreetLight(14, -4, 1);   createStreetLight(14, 4, 1);
+        createStreetLight(14, 18, 1);   createStreetLight(14, 26, 1);
+
+        // 건물 사이 골목 (Alleys)
+        createStreetLight(-25, -11, 0); createStreetLight(-25, 11, 0);
+        createStreetLight(25, -11, 0);  createStreetLight(25, 11, 0);
+
+        // 건물 뒤편 (Behind Buildings)
+        createStreetLight(-36, -22, -1); createStreetLight(-36, 0, -1); createStreetLight(-36, 22, -1);
+        createStreetLight(36, -22, -1);  createStreetLight(36, 0, -1);  createStreetLight(36, 22, -1);
 
         function createHeavyBot(spawnPos) {
             let bot = new THREE.Group();
@@ -493,7 +501,6 @@ game_html = """
         for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
         setInterval(() => { if (bots.length < 6 && !isGameOver) bots.push(createHeavyBot()); }, 2200);
 
-        // 키 등록 처리 (Shift, Space 추가)
         document.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = true; });
         document.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = false; });
 
@@ -612,7 +619,6 @@ game_html = """
             for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
         }
 
-        // 완벽 충돌 슬라이딩 이동 처리
         function checkCollisionAndMove(currentPos, moveVector) {
             let nextPos = currentPos.clone().add(moveVector);
 
@@ -635,7 +641,7 @@ game_html = """
             requestAnimationFrame(animate);
             if (isGameOver) return;
 
-            // 1. WASD 및 Shift (달리기) 처리
+            // 이동속도 조절 (달리기 속도를 0.18 -> 0.13으로 미세 조정)
             let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
             forward.y = 0; forward.normalize();
             let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -648,12 +654,12 @@ game_html = """
             if (keys.KeyA) move.sub(right);
 
             if (move.lengthSq() > 0) {
-                let currentSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 0.18 : 0.095; // Shift 조작 시 달리기
+                let currentSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 0.13 : 0.095; // 달리기 속도 감소
                 move.normalize().multiplyScalar(currentSpeed);
                 checkCollisionAndMove(camera.position, move);
             }
 
-            // 2. Space (점프) 및 중력 물리 처리
+            // 점프 연산
             if (keys.Space && isGrounded) {
                 yVelocity = JUMP_FORCE;
                 isGrounded = false;
@@ -670,7 +676,6 @@ game_html = """
                 }
             }
 
-            // 타격 파티클 애니메이션
             sparks.forEach((sp, idx) => {
                 sp.life -= 0.05;
                 let pos = sp.system.geometry.attributes.position.array;
@@ -685,7 +690,6 @@ game_html = """
                 }
             });
 
-            // 봇 AI 및 이동 충돌 연산
             bots.forEach(bot => {
                 let dir = new THREE.Vector3().subVectors(camera.position, bot.position);
                 dir.y = 0;
