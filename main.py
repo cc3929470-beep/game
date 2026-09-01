@@ -3,7 +3,7 @@ import streamlit.components.v1 as components
 
 st.set_page_config(page_title="SNIPER", layout="wide")
 st.title("🎯 SNIPER")
-st.caption("🎮 조작법: [화면 클릭] 포커스 | WASD = 이동 | 마우스 드래그 = 시점 전환 | 좌클릭 = 사격 | 우클릭 = 스나이퍼 조준(ADS)")
+st.caption("🎮 조작법: [화면 클릭] 포커스 | WASD = 이동 | 마우스 드래그 = 시선 전환 | 좌클릭 = 사격 | 우클릭 = 스나이퍼 조준(ADS)")
 
 game_html = """
 <!DOCTYPE html>
@@ -71,7 +71,7 @@ game_html = """
 
         let scene = new THREE.Scene();
         
-        // --- 1. 푸른 하늘 및 구름 환경 생성 ---
+        // 하늘 및 환경
         let vertexShader = `
             varying vec3 vWorldPosition;
             void main() {
@@ -102,7 +102,7 @@ game_html = """
         let sky = new THREE.Mesh(skyGeo, skyMat);
         scene.add(sky);
 
-        // 동적 구름
+        // 구름
         let clouds = [];
         let cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1.0, transparent: true, opacity: 0.85 });
         for (let i = 0; i < 20; i++) {
@@ -133,8 +133,8 @@ game_html = """
         controls.enableZoom = false;
 
         const PLAYER_HEIGHT = 2.0;
-        camera.position.set(0, PLAYER_HEIGHT, 0.1);
-        controls.target.set(0, PLAYER_HEIGHT, -10);
+        camera.position.set(0, PLAYER_HEIGHT, 0);
+        controls.target.set(0, PLAYER_HEIGHT, -1);
 
         // 조명
         scene.add(new THREE.AmbientLight(0xffffff, 0.65));
@@ -150,7 +150,7 @@ game_html = """
         sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
-        // --- 2. 마을 지형/건축물 생성 (80x80 좁은 마을) ---
+        // 마을 지형/건축물
         let wallMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.6 });
         let roofMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4 });
         let roadMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
@@ -162,7 +162,6 @@ game_html = """
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // 중앙 도로
         let mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(16, 80), roadMat);
         mainRoad.rotation.x = -Math.PI / 2;
         mainRoad.position.y = 0.01;
@@ -175,7 +174,6 @@ game_html = """
         crossRoad.receiveShadow = true;
         scene.add(crossRoad);
 
-        // 실제 건물 구조 함수
         function createVillageHouse(x, z, w, h, d, color) {
             let house = new THREE.Group();
             let mat = color ? new THREE.MeshStandardMaterial({ color: color, roughness: 0.6 }) : wallMat;
@@ -191,7 +189,6 @@ game_html = """
             roof.castShadow = true;
             house.add(roof);
 
-            // 창문 및 문 상세 연출
             let door = new THREE.Mesh(new THREE.BoxGeometry(1.2, 2.2, 0.1), woodMat);
             door.position.set(0, 1.1, d / 2 + 0.06);
             house.add(door);
@@ -207,17 +204,14 @@ game_html = """
             scene.add(crate);
         }
 
-        // 마을 건물 및 장애물 구조 배치
         createVillageHouse(-22, -22, 10, 6, 12, 0x64748b);
         createVillageHouse(22, -22, 12, 8, 10, 0x475569);
         createVillageHouse(-22, 22, 11, 7, 11, 0x334155);
         createVillageHouse(22, 22, 10, 6, 12, 0x64748b);
         
-        // 엄폐용 작은 상자들
         createCrate(-6, -10); createCrate(-5, -8); createCrate(7, -12);
         createCrate(6, 10); createCrate(-7, 14); createCrate(8, 15);
 
-        // 외곽 경계 담장
         let wallBound1 = new THREE.Mesh(new THREE.BoxGeometry(80, 3, 1), wallMat);
         wallBound1.position.set(0, 1.5, -40); scene.add(wallBound1);
         let wallBound2 = wallBound1.clone(); wallBound2.position.set(0, 1.5, 40); scene.add(wallBound2);
@@ -225,7 +219,7 @@ game_html = """
         wallBound3.position.set(-40, 1.5, 0); scene.add(wallBound3);
         let wallBound4 = wallBound3.clone(); wallBound4.position.set(40, 1.5, 0); scene.add(wallBound4);
 
-        // --- 3. 총기 시스템 ---
+        // 총기 시스템
         let gun = new THREE.Group();
         let gunDark = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.85 });
         let gunGold = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.2, metalness: 0.9 });
@@ -266,7 +260,7 @@ game_html = """
         camera.add(gun);
         scene.add(camera);
 
-        // --- 4. 봇 생성 및 부위별 태그(Head/Body/Legs) 설정 ---
+        // 봇 & 부위별 판정
         let hp = 100, score = 0, isGameOver = false;
         let keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false };
         let bots = [], sparks = [];
@@ -275,14 +269,13 @@ game_html = """
         function createBot() {
             if (isGameOver) return;
             let bot = new THREE.Group();
-            bot.userData = { hp: 100 }; // 상대 HP 100 고정
+            bot.userData = { hp: 100 };
 
             let armorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.8 });
             let energyMat = new THREE.MeshStandardMaterial({ color: 0xff4655, emissive: 0xff1122, emissiveIntensity: 1.5 });
             let jointMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.8, metalness: 0.3 });
             let detailGold = new THREE.MeshStandardMaterial({ color: 0xd4af37, roughness: 0.2, metalness: 0.9 });
 
-            // [부위 판정 1] Head - 100 데미지
             let headGroup = new THREE.Group();
             let headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.36, 0.42), armorMat);
             headMesh.castShadow = true;
@@ -290,9 +283,8 @@ game_html = """
             eyeLens.rotateX(Math.PI / 2); eyeLens.position.set(0, 0.03, -0.22);
             headGroup.add(headMesh, eyeLens);
             headGroup.position.y = 2.05;
-            headGroup.userData = { type: 'head' }; // 부위 식별
+            headGroup.userData = { type: 'head' };
 
-            // [부위 판정 2] Body - 50 데미지
             let bodyGroup = new THREE.Group();
             let chest = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.9, 0.52), armorMat);
             chest.position.y = 1.35; chest.castShadow = true;
@@ -311,7 +303,6 @@ game_html = """
             bodyGroup.add(chest, core, shoulderL, shoulderR, armL, armR, waist);
             bodyGroup.userData = { type: 'body' };
 
-            // [부위 판정 3] Legs - 25 데미지
             let legGroup = new THREE.Group();
             let legL = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.75, 0.24), armorMat);
             legL.position.set(-0.24, 0.4, 0); legL.castShadow = true;
@@ -322,7 +313,6 @@ game_html = """
 
             bot.add(headGroup, bodyGroup, legGroup);
 
-            // 스폰 위치 (좁아진 맵에 맞게 조정)
             let angle = Math.random() * Math.PI * 2;
             let dist = 12 + Math.random() * 15;
             bot.position.set(camera.position.x + Math.cos(angle) * dist, 0, camera.position.z + Math.sin(angle) * dist);
@@ -388,7 +378,6 @@ game_html = """
             }
         });
 
-        // --- 사격 및 부위별 데미지 연산 ---
         document.addEventListener('click', (e) => {
             if (e.button !== 0) return;
             if (isGameOver) { resetGame(); return; }
@@ -416,13 +405,11 @@ game_html = """
                 let hitPoint = intersects[0].point;
                 let hitMesh = intersects[0].object;
 
-                // 타격된 부위 찾기
                 let partGroup = hitMesh.parent;
                 while (partGroup && !['head', 'body', 'legs'].includes(partGroup.userData?.type)) {
                     partGroup = partGroup.parent;
                 }
 
-                // 봇 최상위 객체 찾기
                 let hitBot = hitMesh.parent;
                 while (hitBot && !bots.includes(hitBot)) {
                     hitBot = hitBot.parent;
@@ -434,15 +421,15 @@ game_html = """
                     let sparkColor = 0x00f5a0;
 
                     if (hitType === 'head') {
-                        dmg = 100; // 헤드샷 - 즉사
+                        dmg = 100;
                         sparkColor = 0xff0055;
                         showHitFeedback("HEADSHOT! -100", "#ff0055");
                     } else if (hitType === 'body') {
-                        dmg = 50;  // 몸통 - 50
+                        dmg = 50;
                         sparkColor = 0xffaa00;
                         showHitFeedback("BODY HIT -50", "#ffaa00");
                     } else if (hitType === 'legs') {
-                        dmg = 25;  // 다리 - 25
+                        dmg = 25;
                         sparkColor = 0x00d2ff;
                         showHitFeedback("LEG HIT -25", "#00d2ff");
                     }
@@ -467,8 +454,8 @@ game_html = """
             document.getElementById('hp-fill').style.width = '100%';
             document.getElementById('score').innerText = '0';
             document.getElementById('game-over').style.display = 'none';
-            camera.position.set(0, PLAYER_HEIGHT, 0.1);
-            controls.target.set(0, PLAYER_HEIGHT, -10);
+            camera.position.set(0, PLAYER_HEIGHT, 0);
+            controls.target.set(0, PLAYER_HEIGHT, -1);
             for (let i = 0; i < 5; i++) createBot();
         }
 
@@ -476,16 +463,19 @@ game_html = """
             requestAnimationFrame(animate);
             if (isGameOver) return;
 
-            // 구름 천천히 이동
             clouds.forEach(c => {
                 c.position.x += 0.02;
                 if (c.position.x > 80) c.position.x = -80;
             });
 
-            let moveSpeed = 0.08;
-            let forward = new THREE.Vector3();
-            camera.getWorldDirection(forward);
-            forward.y = 0; forward.normalize();
+            // --- 시선 방향 벡터 계산 ---
+            let lookDir = new THREE.Vector3();
+            camera.getWorldDirection(lookDir);
+            
+            // 이동 평면 벡터 (Y축 고정)
+            let forward = lookDir.clone();
+            forward.y = 0;
+            forward.normalize();
 
             let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
             let move = new THREE.Vector3();
@@ -495,13 +485,23 @@ game_html = """
             if (keys.KeyD) move.add(right);
             if (keys.KeyA) move.sub(right);
 
+            // WASD 이동 시 카메라 위치 및 오비트 컨트롤 타겟 동시 이동 (위치 이동 오프셋 유지)
             if (move.lengthSq() > 0) {
+                let moveSpeed = 0.08;
                 move.normalize().multiplyScalar(moveSpeed);
                 camera.position.add(move);
                 controls.target.add(move);
             }
 
             camera.position.y = PLAYER_HEIGHT;
+
+            // --- 마우스 드래그 시 시선 고정 처리 ---
+            // controls.update() 호출 전에 target과 camera 위치 간의 상대거리를 유지시킵니다.
+            let camPos = camera.position.clone();
+            controls.update();
+            let lookOffset = new THREE.Vector3().subVectors(controls.target, camera.position);
+            camera.position.copy(camPos);
+            controls.target.copy(camPos).add(lookOffset);
 
             sparks.forEach((sp, idx) => {
                 sp.life -= 0.05;
@@ -519,7 +519,6 @@ game_html = """
                 }
             });
 
-            // --- 봇 이동 (속도를 0.025로 하향 조정) ---
             bots.forEach(bot => {
                 let dir = new THREE.Vector3().subVectors(camera.position, bot.position);
                 dir.y = 0;
@@ -527,7 +526,7 @@ game_html = """
                 dir.normalize();
 
                 if (dist > 1.8) {
-                    bot.position.addScaledVector(dir, 0.025); // 봇 이동 속도 하향 반영
+                    bot.position.addScaledVector(dir, 0.025);
                 } else {
                     hp -= 0.25;
                     document.getElementById('hp-fill').style.width = Math.max(0, hp) + '%';
@@ -539,7 +538,6 @@ game_html = """
                 bot.lookAt(camera.position.x, 0, camera.position.z);
             });
 
-            controls.update();
             renderer.render(scene, camera);
         }
         animate();
