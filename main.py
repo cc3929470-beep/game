@@ -164,10 +164,9 @@ game_html = """
         const PLAYER_RADIUS = 0.8;
         camera.position.set(0, PLAYER_HEIGHT, 0);
 
-        // 물리 변수 조정 (점프 높이 감소)
         let yVelocity = 0;
         let isGrounded = true;
-        const JUMP_FORCE = 0.14; // 살짝 높이 감축 (기존 0.22)
+        const JUMP_FORCE = 0.14;
         const GRAVITY = 0.009;
 
         let pitch = 0, yaw = 0;
@@ -281,7 +280,6 @@ game_html = """
             }
         }
 
-        // 건물 생성
         createBuildingBlock(-25, -22, 18, 18, 18);
         createBuildingBlock(-25, 0, 18, 22, 16);
         createBuildingBlock(-25, 22, 18, 16, 18);
@@ -363,7 +361,6 @@ game_html = """
             addBoxCollider(x, z, 0.8, 0.8);
         }
 
-        // 트럭 6개 배치
         createDestroyedTruck(-5, 6, 0.4);
         createDestroyedTruck(7, -10, -0.6);
         createDestroyedTruck(-12, 22, 1.2);
@@ -381,22 +378,17 @@ game_html = """
         createBurningBarrel(-3, 25);
         createBurningBarrel(4, -22);
 
-        // 건물당 2개씩 전면 가로등 + 건물 사이 골목 + 건물 뒤편 가로등 배치
-        // 좌측 건물군 전면 (x = -14)
         createStreetLight(-14, -26, 1); createStreetLight(-14, -18, 1);
         createStreetLight(-14, -4, 1);  createStreetLight(-14, 4, 1);
         createStreetLight(-14, 18, 1);  createStreetLight(-14, 26, 1);
 
-        // 우측 건물군 전면 (x = 14)
         createStreetLight(14, -26, 1);  createStreetLight(14, -18, 1);
         createStreetLight(14, -4, 1);   createStreetLight(14, 4, 1);
         createStreetLight(14, 18, 1);   createStreetLight(14, 26, 1);
 
-        // 건물 사이 골목 (Alleys)
         createStreetLight(-25, -11, 0); createStreetLight(-25, 11, 0);
         createStreetLight(25, -11, 0);  createStreetLight(25, 11, 0);
 
-        // 건물 뒤편 (Behind Buildings)
         createStreetLight(-36, -22, -1); createStreetLight(-36, 0, -1); createStreetLight(-36, 22, -1);
         createStreetLight(36, -22, -1);  createStreetLight(36, 0, -1);  createStreetLight(36, 22, -1);
 
@@ -494,15 +486,34 @@ game_html = """
         });
 
         let hp = 100, score = 0, isGameOver = false;
+        
+        // 이동 키 상태 개체
         let keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ShiftLeft: false, ShiftRight: false, Space: false };
+        
+        // [버그 수정 1] 키 초기화 전용 함수
+        function resetKeys() {
+            for (let k in keys) {
+                keys[k] = false;
+            }
+        }
+
         let bots = [], sparks = [];
         let isAiming = false;
 
         for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
         setInterval(() => { if (bots.length < 6 && !isGameOver) bots.push(createHeavyBot()); }, 2200);
 
-        document.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = true; });
-        document.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = false; });
+        // 키 입력 처리
+        document.addEventListener('keydown', (e) => { 
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
+        });
+        document.addEventListener('keyup', (e) => { 
+            if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
+        });
+
+        // [버그 수정 2] 창 포커스가 벗어나거나 탭 전환 시 키 누름 현상 방지
+        window.addEventListener('blur', resetKeys);
+        document.addEventListener('mouseleave', resetKeys);
 
         function createSparks(pos, colorHex) {
             let pGeo = new THREE.BufferGeometry();
@@ -609,6 +620,7 @@ game_html = """
         function resetGame() {
             bots.forEach(b => scene.remove(b));
             bots = []; hp = 100; score = 0; isGameOver = false;
+            resetKeys(); // 리셋 시 키 상태 초기화
             document.getElementById('hp-fill').style.width = '100%';
             document.getElementById('score').innerText = '0';
             document.getElementById('game-over').style.display = 'none';
@@ -641,7 +653,6 @@ game_html = """
             requestAnimationFrame(animate);
             if (isGameOver) return;
 
-            // 이동속도 조절 (달리기 속도를 0.18 -> 0.13으로 미세 조정)
             let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
             forward.y = 0; forward.normalize();
             let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -654,12 +665,11 @@ game_html = """
             if (keys.KeyA) move.sub(right);
 
             if (move.lengthSq() > 0) {
-                let currentSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 0.13 : 0.095; // 달리기 속도 감소
+                let currentSpeed = (keys.ShiftLeft || keys.ShiftRight) ? 0.13 : 0.095;
                 move.normalize().multiplyScalar(currentSpeed);
                 checkCollisionAndMove(camera.position, move);
             }
 
-            // 점프 연산
             if (keys.Space && isGrounded) {
                 yVelocity = JUMP_FORCE;
                 isGrounded = false;
