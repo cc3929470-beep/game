@@ -1,8 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="SNIPER: HEAVY METAL MARKET", layout="wide")
-st.title("🎯 SNIPER: HEAVY METAL MARKET")
+st.set_page_config(page_title="SNIPER: URBAN WARZONE", layout="wide")
+st.title("🎯 SNIPER: URBAN WARZONE")
 st.caption("🎮 조작법: [화면 클릭] 포커스 | WASD = 이동 | [1, 2, 3] = 총기 변경 | 마우스 드래그 = 시선 전환 | 좌클릭 = 사격 | 우클릭 = ADS 조준")
 
 game_html = """
@@ -75,9 +75,9 @@ game_html = """
         document.addEventListener('contextmenu', event => event.preventDefault());
 
         let scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0xfff3e0, 0.007);
+        scene.fog = new THREE.FogExp2(0x334155, 0.012); // 전투 느낌의 자욱한 연기 안개
 
-        // 스카이돔
+        // 스카이돔 (어두운 전쟁터 느낌의 하늘)
         let skyGeo = new THREE.SphereGeometry(350, 32, 16);
         let skyMat = new THREE.ShaderMaterial({
             vertexShader: `
@@ -93,13 +93,13 @@ game_html = """
                 uniform vec3 bottomColor;
                 varying vec3 vWorldPosition;
                 void main() {
-                    float h = normalize(vWorldPosition + 40.0).y;
+                    float h = normalize(vWorldPosition + 20.0).y;
                     gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
                 }
             `,
             uniforms: {
-                topColor: { value: new THREE.Color(0x38bdf8) },
-                bottomColor: { value: new THREE.Color(0xffedd5) }
+                topColor: { value: new THREE.Color(0x0f172a) },
+                bottomColor: { value: new THREE.Color(0x475569) }
             },
             side: THREE.BackSide
         });
@@ -112,7 +112,7 @@ game_html = """
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.3;
+        renderer.toneMappingExposure = 1.1;
         document.body.appendChild(renderer.domElement);
 
         const PLAYER_HEIGHT = 2.0;
@@ -147,70 +147,60 @@ game_html = """
             camera.quaternion.setFromEuler(euler);
         });
 
-        // 조명
-        scene.add(new THREE.AmbientLight(0xfff7ed, 0.8));
-        let sun = new THREE.DirectionalLight(0xffedd5, 2.0);
-        sun.position.set(60, 80, 40);
+        // 조명 (드라마틱한 태양빛)
+        scene.add(new THREE.AmbientLight(0x94a3b8, 0.6));
+        let sun = new THREE.DirectionalLight(0xfba518, 1.8);
+        sun.position.set(50, 60, 30);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 2048;
         sun.shadow.mapSize.height = 2048;
         sun.shadow.camera.near = 0.5;
         sun.shadow.camera.far = 200;
-        let d = 60;
+        let d = 50;
         sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
         sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
-        // 공통 고급 금속/건축 재질
+        // 기본 금속 및 건축 재질
         let heavySteel = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.25, metalness: 0.95 });
         let chromeMetal = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.15, metalness: 0.98 });
         let darkIron = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.9 });
         let brassGold = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 });
+        let concreteMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.9, metalness: 0.05 });
+        let burntMetal = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.8, metalness: 0.7 });
+        let rustMetal = new THREE.MeshStandardMaterial({ color: 0x7c2d12, roughness: 0.7, metalness: 0.4 });
 
-        // --- 고디테일 아침 재래시장 맵 ---
-        let floorMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.85, metalness: 0.1 });
-        let stallWood = new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.8 });
-        let awningRed = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.4 });
-        let awningBlue = new THREE.MeshStandardMaterial({ color: 0x0369a1, roughness: 0.4 });
-        let crateMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
-        let bldgMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 });
-        let glassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.6 });
+        // --- 맵 설계: 제한된 구역 (Boundary Boundary) 및 시가전 거리 ---
+        const MAP_LIMIT = 38; // 플레이어 이동제한 영역
 
-        let floor = new THREE.Mesh(new THREE.PlaneGeometry(140, 140), floorMat);
+        let floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.85, metalness: 0.1 });
+        let floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
 
-        function createMarketStall(x, z, angle, clothMat) {
-            let stall = new THREE.Group();
-            let counter = new THREE.Mesh(new THREE.BoxGeometry(4.0, 1.1, 2.0), stallWood);
-            counter.position.y = 0.55; counter.castShadow = true; counter.receiveShadow = true;
-            stall.add(counter);
+        // 外 Map Boundary Walls (4방향 방벽)
+        function createBoundaryWalls() {
+            let wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+            let h = 12, t = 2;
+            let wallN = new THREE.Mesh(new THREE.BoxGeometry(80, h, t), wallMat); wallN.position.set(0, h/2, -MAP_LIMIT);
+            let wallS = new THREE.Mesh(new THREE.BoxGeometry(80, h, t), wallMat); wallS.position.set(0, h/2, MAP_LIMIT);
+            let wallE = new THREE.Mesh(new THREE.BoxGeometry(t, h, 80), wallMat); wallE.position.set(MAP_LIMIT, h/2, 0);
+            let wallW = new THREE.Mesh(new THREE.BoxGeometry(t, h, 80), wallMat); wallW.position.set(-MAP_LIMIT, h/2, 0);
 
-            let roof = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.1, 2.4), clothMat);
-            roof.position.set(0, 2.7, 0); roof.rotation.x = 0.15; roof.castShadow = true;
-            stall.add(roof);
-
-            let pole1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.7), heavySteel);
-            pole1.position.set(-1.9, 1.35, -0.9);
-            let pole2 = pole1.clone(); pole2.position.set(1.9, 1.35, -0.9);
-            stall.add(pole1, pole2);
-
-            for (let i = 0; i < 5; i++) {
-                let item = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.35, 0.5), crateMat);
-                item.position.set(-1.3 + i * 0.65, 1.28, 0);
-                stall.add(item);
-            }
-            stall.position.set(x, 0, z); stall.rotation.y = angle;
-            scene.add(stall);
+            [wallN, wallS, wallE, wallW].forEach(w => { w.castShadow = true; w.receiveShadow = true; scene.add(w); });
         }
+        createBoundaryWalls();
 
-        function createBuilding(x, z, w, h, d) {
+        // 건물 및 골목길 배치 (골목 생성)
+        let bldgMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+        let glassMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.5 });
+
+        function createBuildingBlock(x, z, w, h, d) {
             let bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldgMat);
             bldg.position.set(x, h/2, z);
             bldg.castShadow = true; bldg.receiveShadow = true;
 
-            // 창문 디테일
             for (let y = 3; y < h - 2; y += 3) {
                 for (let wx = -w/2 + 2; wx < w/2 - 1; wx += 3) {
                     let win = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.8, 0.1), glassMat);
@@ -221,15 +211,78 @@ game_html = """
             scene.add(bldg);
         }
 
-        for (let i = -45; i <= 45; i += 14) {
-            createBuilding(-20, i, 14, 12 + (Math.abs(i)%3)*3, 12);
-            createBuilding(20, i, 14, 12 + (Math.abs(i)%2)*4, 12);
-            createMarketStall(-11, i, Math.PI / 2, i % 2 === 0 ? awningRed : awningBlue);
-            createMarketStall(11, i, -Math.PI / 2, i % 2 === 0 ? awningBlue : awningRed);
+        // 건물을 일정 간격 배치하여 그 사이를 "골목(Alleyway)"으로 연출
+        // 좌측 건물군
+        createBuildingBlock(-24, -22, 18, 16, 18);
+        createBuildingBlock(-24, 0, 18, 18, 16);    // 골목 1 (-24, -11)
+        createBuildingBlock(-24, 22, 18, 14, 18);   // 골목 2 (-24, 11)
+
+        // 우측 건물군
+        createBuildingBlock(24, -22, 18, 15, 18);
+        createBuildingBlock(24, 0, 18, 20, 16);     // 골목 3 (24, -11)
+        createBuildingBlock(24, 22, 18, 16, 18);    // 골목 4 (24, 11)
+
+        // 골목길 스폰 포인트 정의
+        const ALLEY_SPAWNS = [
+            new THREE.Vector3(-26, 0, -11),
+            new THREE.Vector3(-26, 0, 11),
+            new THREE.Vector3(26, 0, -11),
+            new THREE.Vector3(26, 0, 11)
+        ];
+
+        // --- 장애물 & 엄폐물 (파괴된 트럭 / 바리케이드) ---
+        function createDestroyedTruck(x, z, angle) {
+            let truck = new THREE.Group();
+
+            // 차체
+            let body = new THREE.Mesh(new THREE.BoxGeometry(2.6, 1.4, 5.5), burntMetal);
+            body.position.y = 1.0; body.castShadow = true; body.receiveShadow = true;
+            truck.add(body);
+
+            // 운전석
+            let cab = new THREE.Mesh(new THREE.BoxGeometry(2.5, 1.3, 2.0), rustMetal);
+            cab.position.set(0, 1.8, -1.6); cab.castShadow = true;
+            truck.add(cab);
+
+            // 바퀴 (소실/파괴된 바퀴 포함)
+            for (let bx of [-1.3, 1.3]) {
+                for (let bz of [-1.8, 1.8]) {
+                    let wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.4, 12), darkIron);
+                    wheel.rotateZ(Math.PI / 2); wheel.position.set(bx, 0.5, bz);
+                    truck.add(wheel);
+                }
+            }
+
+            truck.position.set(x, 0, z);
+            truck.rotation.y = angle;
+            truck.rotation.z = 0.22; // 옆으로 살짝 넘어져 비스듬하게 파괴된 느낌
+            scene.add(truck);
         }
 
+        function createBarricade(x, z, angle) {
+            let bar = new THREE.Group();
+            let conc1 = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.2, 0.6), concreteMat);
+            conc1.position.y = 0.6; conc1.castShadow = true; conc1.receiveShadow = true;
+
+            let conc2 = conc1.clone();
+            conc2.position.set(0.8, 0.5, 0.4); conc2.rotation.y = 0.3;
+
+            bar.add(conc1, conc2);
+            bar.position.set(x, 0, z);
+            bar.rotation.y = angle;
+            scene.add(bar);
+        }
+
+        // 장애물 배치
+        createDestroyedTruck(-4, 6, 0.4);
+        createDestroyedTruck(6, -10, -0.6);
+        createBarricade(-2, -18, 0.2);
+        createBarricade(3, 16, -0.4);
+        createBarricade(-12, 0, 1.57);
+        createBarricade(12, 0, 1.57);
+
         // --- 쇠 느낌 극대화 헤비 봇 (Heavy Metal Bot) ---
-        function createHeavyBot() {
+        function createHeavyBot(spawnPos) {
             let bot = new THREE.Group();
             bot.userData = { hp: 120 };
 
@@ -257,7 +310,6 @@ game_html = """
             let core = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 0.1, 16), reactorGlow);
             core.rotateX(Math.PI / 2); core.position.set(0, 1.4, -0.26);
 
-            // 어깨 서보 모터
             let shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), heavySteel);
             shoulderL.position.set(-0.58, 1.7, 0);
             let shoulderR = shoulderL.clone(); shoulderR.position.set(0.58, 1.7, 0);
@@ -275,15 +327,15 @@ game_html = """
 
             bot.add(headGroup, bodyGroup, legGroup);
 
-            let angle = Math.random() * Math.PI * 2;
-            let dist = 15 + Math.random() * 15;
-            bot.position.set(camera.position.x + Math.cos(angle) * dist, 0, camera.position.z + Math.sin(angle) * dist);
+            // 지정된 골목 사이 스폰 위치 지정
+            let p = spawnPos || ALLEY_SPAWNS[Math.floor(Math.random() * ALLEY_SPAWNS.length)];
+            bot.position.copy(p);
 
             scene.add(bot);
             return bot;
         }
 
-        // --- 3종 쇠 구성 리얼 스나이퍼 소총 제작 ---
+        // --- 3종 스나이퍼 소총 ---
         function createGuns() {
             let guns = [];
 
@@ -323,13 +375,7 @@ game_html = """
             sc3.position.set(0, 0.21, -0.2);
             g3.add(b3, neonTube, r3, sc3);
 
-            let flashMat = new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0 });
-            let muzzleFlash = new THREE.Mesh(new THREE.OctahedronGeometry(0.35), flashMat);
-            muzzleFlash.position.set(0, 0, -2.5);
-
-            [g1, g2, g3].forEach(g => g.add(muzzleFlash.clone()));
-
-            return { gunList: [g1, g2, g3], names: ["M200 HEAVY", "EBR TACTICAL", "CYBER LASER"], flashMat: flashMat };
+            return { gunList: [g1, g2, g3], names: ["M200 HEAVY", "EBR TACTICAL", "CYBER LASER"] };
         }
 
         let gunData = createGuns();
@@ -350,7 +396,7 @@ game_html = """
         camera.add(gunContainer);
         scene.add(camera);
 
-        // 무기 스위칭 이벤트
+        // 무기 교체 이벤트
         document.addEventListener('keydown', (e) => {
             if (['Digit1', 'Digit2', 'Digit3'].includes(e.code)) {
                 let idx = parseInt(e.code.replace('Digit', '')) - 1;
@@ -366,8 +412,9 @@ game_html = """
         let bots = [], sparks = [];
         let isAiming = false;
 
-        for (let i = 0; i < 5; i++) bots.push(createHeavyBot());
-        setInterval(() => { if (bots.length < 6 && !isGameOver) bots.push(createHeavyBot()); }, 2500);
+        // 초기 봇 생성 (골목 위치)
+        for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
+        setInterval(() => { if (bots.length < 6 && !isGameOver) bots.push(createHeavyBot()); }, 2000);
 
         document.addEventListener('keydown', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = true; });
         document.addEventListener('keyup', (e) => { if (keys.hasOwnProperty(e.code)) keys[e.code] = false; });
@@ -483,7 +530,7 @@ game_html = """
             camera.position.set(0, PLAYER_HEIGHT, 0);
             pitch = 0; yaw = 0;
             camera.quaternion.setFromEuler(new THREE.Euler(0, 0, 0));
-            for (let i = 0; i < 5; i++) bots.push(createHeavyBot());
+            for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
         }
 
         function animate() {
@@ -506,6 +553,11 @@ game_html = """
                 move.normalize().multiplyScalar(0.09);
                 camera.position.add(move);
             }
+
+            // 플레이어가 맵 외곽 콘크리트 방벽을 통과하지 못하게 제한
+            let boundLimit = MAP_LIMIT - 2.5;
+            camera.position.x = Math.max(-boundLimit, Math.min(boundLimit, camera.position.x));
+            camera.position.z = Math.max(-boundLimit, Math.min(boundLimit, camera.position.z));
             camera.position.y = PLAYER_HEIGHT;
 
             sparks.forEach((sp, idx) => {
@@ -529,7 +581,7 @@ game_html = """
                 dir.normalize();
 
                 if (dist > 1.8) {
-                    bot.position.addScaledVector(dir, 0.032);
+                    bot.position.addScaledVector(dir, 0.035);
                 } else {
                     hp -= 0.35;
                     document.getElementById('hp-fill').style.width = Math.max(0, hp) + '%';
