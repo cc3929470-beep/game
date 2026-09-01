@@ -219,6 +219,7 @@ game_html = """
         let burntMetal = new THREE.MeshStandardMaterial({ map: rustTex, roughness: 0.7, metalness: 0.6 });
         let signNeon = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 4.0 });
         let fireEmissive = new THREE.MeshStandardMaterial({ color: 0xff4500, emissive: 0xff4500, emissiveIntensity: 3.5 });
+        let lanternGlowMat = new THREE.MeshStandardMaterial({ color: 0xffaa33, emissive: 0xff8800, emissiveIntensity: 5.0 });
 
         const MAP_LIMIT = 38;
         let floorMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.9, metalness: 0.1 });
@@ -342,23 +343,38 @@ game_html = """
             addBoxCollider(x, z, 1.2, 1.2);
         }
 
-        function createStreetLight(x, z, dirZ = -1) {
-            let pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6.0, 12), darkIron);
-            pole.position.set(x, 3.0, z);
+        // [개선된 랜턴형 가로등] 충돌체를 극소화하여 봇 끼임 버그 완벽 차단
+        function createStreetLight(x, z) {
+            let lanternGroup = new THREE.Group();
+
+            // 얇은 기둥
+            let pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 5.0, 12), darkIron);
+            pole.position.set(x, 2.5, z);
             pole.castShadow = true;
-            scene.add(pole);
+            lanternGroup.add(pole);
 
-            let lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 1.2), heavySteel);
-            lamp.position.set(x, 6.0, z + dirZ * 0.4);
-            scene.add(lamp);
+            // 랜턴 고정 브래킷 & 갓
+            let cap = new THREE.Mesh(new THREE.ConeGeometry(0.45, 0.3, 6), darkIron);
+            cap.position.set(x, 5.2, z);
+            lanternGroup.add(cap);
 
-            let light = new THREE.SpotLight(0xffa500, 2.5, 14, Math.PI / 4, 0.5);
-            light.position.set(x, 5.9, z + dirZ * 0.4);
-            light.target.position.set(x, 0, z + dirZ * 2.0);
-            scene.add(light);
-            scene.add(light.target);
+            // 랜턴 유리 및 발광체
+            let glass = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.18, 0.6, 6), glassMat);
+            glass.position.set(x, 4.75, z);
+            lanternGroup.add(glass);
 
-            addBoxCollider(x, z, 0.8, 0.8);
+            let bulb = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 12), lanternGlowMat);
+            bulb.position.set(x, 4.75, z);
+            lanternGroup.add(bulb);
+
+            let light = new THREE.PointLight(0xff9900, 2.8, 15);
+            light.position.set(x, 4.75, z);
+            lanternGroup.add(light);
+
+            scene.add(lanternGroup);
+
+            // 충돌 크기를 최대로 줄여 봇들이 걸리지 않고 스무스하게 지나가도록 수정
+            addBoxCollider(x, z, 0.2, 0.2);
         }
 
         createDestroyedTruck(-5, 6, 0.4);
@@ -378,20 +394,21 @@ game_html = """
         createBurningBarrel(-3, 25);
         createBurningBarrel(4, -22);
 
-        createStreetLight(-14, -26, 1); createStreetLight(-14, -18, 1);
-        createStreetLight(-14, -4, 1);  createStreetLight(-14, 4, 1);
-        createStreetLight(-14, 18, 1);  createStreetLight(-14, 26, 1);
+        createStreetLight(-14, -26); createStreetLight(-14, -18);
+        createStreetLight(-14, -4);  createStreetLight(-14, 4);
+        createStreetLight(-14, 18);  createStreetLight(-14, 26);
 
-        createStreetLight(14, -26, 1);  createStreetLight(14, -18, 1);
-        createStreetLight(14, -4, 1);   createStreetLight(14, 4, 1);
-        createStreetLight(14, 18, 1);   createStreetLight(14, 26, 1);
+        createStreetLight(14, -26);  createStreetLight(14, -18);
+        createStreetLight(14, -4);   createStreetLight(14, 4);
+        createStreetLight(14, 18);   createStreetLight(14, 26);
 
-        createStreetLight(-25, -11, 0); createStreetLight(-25, 11, 0);
-        createStreetLight(25, -11, 0);  createStreetLight(25, 11, 0);
+        createStreetLight(-25, -11); createStreetLight(-25, 11);
+        createStreetLight(25, -11);  createStreetLight(25, 11);
 
-        createStreetLight(-36, -22, -1); createStreetLight(-36, 0, -1); createStreetLight(-36, 22, -1);
-        createStreetLight(36, -22, -1);  createStreetLight(36, 0, -1);  createStreetLight(36, 22, -1);
+        createStreetLight(-36, -22); createStreetLight(-36, 0); createStreetLight(-36, 22);
+        createStreetLight(36, -22);  createStreetLight(36, 0);  createStreetLight(36, 22);
 
+        // [개선된 봇 생성] 빈틈을 완벽히 제거한 일체형 메쉬
         function createHeavyBot(spawnPos) {
             let bot = new THREE.Group();
             bot.userData = { hp: 120 };
@@ -399,27 +416,43 @@ game_html = """
             let redEye = new THREE.MeshStandardMaterial({ color: 0xff0033, emissive: 0xff0033, emissiveIntensity: 4.0 });
             let reactorGlow = new THREE.MeshStandardMaterial({ color: 0x00f5a0, emissive: 0x00f5a0, emissiveIntensity: 3.0 });
 
+            // 1. 머리 및 목 조인트 (몸통 안쪽 깊숙이 침투)
             let headGroup = new THREE.Group();
-            let headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.38, 0.44), heavySteel);
+            let headMesh = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.4, 0.44), heavySteel);
             headMesh.castShadow = true;
+            
+            let neckJoint = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.35, 12), darkIron);
+            neckJoint.position.set(0, -0.25, 0); // 몸통과 완전히 겹치는 목
+
             let visor = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.38, 16), redEye);
             visor.rotateZ(Math.PI / 2); visor.position.set(0, 0.05, -0.22);
-            headGroup.add(headMesh, visor);
-            headGroup.position.y = 2.2;
+
+            headGroup.add(headMesh, neckJoint, visor);
+            headGroup.position.y = 2.05;
             headGroup.userData = { type: 'head' };
 
+            // 2. 몸통 및 고관절 (머리/다리 조인트 연결)
             let bodyGroup = new THREE.Group();
-            let torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.95, 0.55), darkIron);
-            torso.position.y = 1.4; torso.castShadow = true;
+            let torso = new THREE.Mesh(new THREE.BoxGeometry(0.85, 1.05, 0.55), darkIron);
+            torso.position.y = 1.35; torso.castShadow = true;
+            
             let core = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.12, 16), reactorGlow);
             core.rotateX(Math.PI / 2); core.position.set(0, 1.4, -0.28);
-            bodyGroup.add(torso, core);
+
+            // 허리와 골반 연결 부위 확장
+            let pelvisJoint = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.3, 0.45), heavySteel);
+            pelvisJoint.position.y = 0.8;
+
+            bodyGroup.add(torso, core, pelvisJoint);
             bodyGroup.userData = { type: 'body' };
 
+            // 3. 다리 (몸통 하단과 완전히 겹침)
             let legGroup = new THREE.Group();
-            let legL = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.1, 0.9, 12), chromeMetal);
-            legL.position.set(-0.26, 0.45, 0); legL.castShadow = true;
-            let legR = legL.clone(); legR.position.set(0.26, 0.45, 0);
+            let legL = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.11, 1.05, 12), chromeMetal);
+            legL.position.set(-0.25, 0.45, 0); legL.castShadow = true;
+            
+            let legR = legL.clone(); legR.position.set(0.25, 0.45, 0);
+            
             legGroup.add(legL, legR);
             legGroup.userData = { type: 'legs' };
 
@@ -486,15 +519,10 @@ game_html = """
         });
 
         let hp = 100, score = 0, isGameOver = false;
-        
-        // 이동 키 상태 개체
         let keys = { KeyW: false, KeyS: false, KeyA: false, KeyD: false, ShiftLeft: false, ShiftRight: false, Space: false };
         
-        // [버그 수정 1] 키 초기화 전용 함수
         function resetKeys() {
-            for (let k in keys) {
-                keys[k] = false;
-            }
+            for (let k in keys) { keys[k] = false; }
         }
 
         let bots = [], sparks = [];
@@ -503,7 +531,6 @@ game_html = """
         for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
         setInterval(() => { if (bots.length < 6 && !isGameOver) bots.push(createHeavyBot()); }, 2200);
 
-        // 키 입력 처리
         document.addEventListener('keydown', (e) => { 
             if (keys.hasOwnProperty(e.code)) keys[e.code] = true; 
         });
@@ -511,7 +538,6 @@ game_html = """
             if (keys.hasOwnProperty(e.code)) keys[e.code] = false; 
         });
 
-        // [버그 수정 2] 창 포커스가 벗어나거나 탭 전환 시 키 누름 현상 방지
         window.addEventListener('blur', resetKeys);
         document.addEventListener('mouseleave', resetKeys);
 
@@ -620,7 +646,7 @@ game_html = """
         function resetGame() {
             bots.forEach(b => scene.remove(b));
             bots = []; hp = 100; score = 0; isGameOver = false;
-            resetKeys(); // 리셋 시 키 상태 초기화
+            resetKeys();
             document.getElementById('hp-fill').style.width = '100%';
             document.getElementById('score').innerText = '0';
             document.getElementById('game-over').style.display = 'none';
