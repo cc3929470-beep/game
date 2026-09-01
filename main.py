@@ -76,7 +76,7 @@ game_html = """
         window.focus();
         document.addEventListener('contextmenu', event => event.preventDefault());
 
-        // --- 절차적 고해상도 텍스처 생성 엔진 (최대 그래픽 질감 구현) ---
+        // --- 절차적 고해상도 텍스처 생성 엔진 ---
         function generateProceduralTexture(type) {
             let canvas = document.createElement('canvas');
             canvas.width = 512; canvas.height = 512;
@@ -117,10 +117,8 @@ game_html = """
             return texture;
         }
 
-        let concreteTex = generateProceduralTexture('concrete');
-        concreteTex.repeat.set(2, 4);
-        let asphaltTex = generateProceduralTexture('asphalt');
-        asphaltTex.repeat.set(8, 8);
+        let concreteTex = generateProceduralTexture('concrete'); concreteTex.repeat.set(2, 4);
+        let asphaltTex = generateProceduralTexture('asphalt'); asphaltTex.repeat.set(8, 8);
         let rustTex = generateProceduralTexture('rust');
 
         let scene = new THREE.Scene();
@@ -138,8 +136,7 @@ game_html = """
                 }
             `,
             fragmentShader: `
-                uniform vec3 topColor;
-                uniform vec3 bottomColor;
+                uniform vec3 topColor; uniform vec3 bottomColor;
                 varying vec3 vWorldPosition;
                 void main() {
                     float h = normalize(vWorldPosition + 10.0).y;
@@ -159,7 +156,7 @@ game_html = """
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         
-        // 그래픽 극대화 설정 (고해상도 그림자 및 ACESFilmic 톤매핑)
+        // 초고화질 그래픽 설정 (4K 그림자 및 ACES 톤매핑)
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -170,7 +167,7 @@ game_html = """
         const PLAYER_RADIUS = 0.8;
         camera.position.set(0, PLAYER_HEIGHT, 0);
 
-        // 카메라 회전 조작
+        // 시선 전환 조작
         let pitch = 0, yaw = 0;
         let isMouseDown = false;
         let prevMousePos = { x: 0, y: 0 };
@@ -199,12 +196,12 @@ game_html = """
             camera.quaternion.setFromEuler(euler);
         });
 
-        // 조명 연산
+        // 광원 연산
         scene.add(new THREE.AmbientLight(0x64748b, 0.7));
         let sun = new THREE.DirectionalLight(0xfba518, 2.2);
         sun.position.set(60, 80, 40);
         sun.castShadow = true;
-        sun.shadow.mapSize.width = 4096; // 그림자 해상도 극대화
+        sun.shadow.mapSize.width = 4096;
         sun.shadow.mapSize.height = 4096;
         sun.shadow.camera.near = 0.5;
         sun.shadow.camera.far = 250;
@@ -213,7 +210,7 @@ game_html = """
         sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
-        // 재질 정의
+        // 기본 재질 정의
         let bldgMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.8, metalness: 0.1 });
         let heavySteel = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.2, metalness: 0.9 });
         let chromeMetal = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.1, metalness: 0.95 });
@@ -222,8 +219,9 @@ game_html = """
         let glassMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.05, metalness: 0.95, transparent: true, opacity: 0.6 });
         let burntMetal = new THREE.MeshStandardMaterial({ map: rustTex, roughness: 0.7, metalness: 0.6 });
         let signNeon = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 4.0 });
+        let fireEmissive = new THREE.MeshStandardMaterial({ color: 0xff4500, emissive: 0xff4500, emissiveIntensity: 3.5 });
 
-        // 바닥
+        // 바닥 생성
         const MAP_LIMIT = 38;
         let floorMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.9, metalness: 0.1 });
         let floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
@@ -231,8 +229,8 @@ game_html = """
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // --- 충돌 판정 엔진 (AABB Bounding Box) ---
-        let colliders = []; // 모든 충돌체 저장 (건물, 외곽벽, 대형 엄폐물)
+        // --- 통합 충돌 판정 시스템 (AABB Bounding Box) ---
+        let colliders = [];
 
         function addBoxCollider(x, z, w, d) {
             colliders.push({
@@ -244,7 +242,7 @@ game_html = """
             });
         }
 
-        // 외곽 차단벽 생성 및 충돌 등록
+        // 외곽 차단벽 생성
         function createBoundaryWalls() {
             let wallMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9 });
             let h = 14, t = 4;
@@ -262,17 +260,15 @@ game_html = """
         }
         createBoundaryWalls();
 
-        // 건물 및 디테일 구조물 생성 함수
+        // 시가전 건물 생성
         function createBuildingBlock(x, z, w, h, d) {
             let bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldgMat);
             bldg.position.set(x, h/2, z);
             bldg.castShadow = true; bldg.receiveShadow = true;
             scene.add(bldg);
 
-            // 건물 충돌체 등록
             addBoxCollider(x, z, w, d);
 
-            // 세부 디테일 (창문, 파괴된 구조물, 간판)
             for (let y = 3; y < h - 2; y += 3.5) {
                 for (let wx = -w/2 + 2; wx < w/2 - 1.5; wx += 3.2) {
                     let win = new THREE.Mesh(new THREE.BoxGeometry(1.4, 2.0, 0.15), glassMat);
@@ -282,15 +278,14 @@ game_html = """
                 }
             }
 
-            // 네온 간판 또는 피복된 파편 구조물 추가
-            if (Math.random() > 0.4) {
+            if (Math.random() > 0.3) {
                 let sign = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.5, 4.0), signNeon);
                 sign.position.set(x + (x > 0 ? -w/2 - 0.1 : w/2 + 0.1), h * 0.6, z);
                 scene.add(sign);
             }
         }
 
-        // 시가전 건물 구역 배치 (골목 생성)
+        // 시가전 구역 배치 (건물 군락)
         createBuildingBlock(-25, -22, 18, 18, 18);
         createBuildingBlock(-25, 0, 18, 22, 16);
         createBuildingBlock(-25, 22, 18, 16, 18);
@@ -299,7 +294,7 @@ game_html = """
         createBuildingBlock(25, 0, 18, 24, 16);
         createBuildingBlock(25, 22, 18, 18, 18);
 
-        // 스폰 포인트 (건물 사이 골목 깊은 곳)
+        // 스폰 지점
         const ALLEY_SPAWNS = [
             new THREE.Vector3(-26, 0, -11),
             new THREE.Vector3(-26, 0, 11),
@@ -307,7 +302,7 @@ game_html = """
             new THREE.Vector3(26, 0, 11)
         ];
 
-        // 엄폐물 & 파괴된 트럭 (충돌 적용)
+        // --- 다양한 시가전 장애물 오브젝트 생성 (전부 충돌 판정 적용) ---
         function createDestroyedTruck(x, z, angle) {
             let truck = new THREE.Group();
             let body = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.6, 5.8), burntMetal);
@@ -320,10 +315,10 @@ game_html = """
 
             truck.position.set(x, 0, z);
             truck.rotation.y = angle;
-            truck.rotation.z = 0.25;
+            truck.rotation.z = 0.2;
             scene.add(truck);
 
-            addBoxCollider(x, z, 3.2, 6.0);
+            addBoxCollider(x, z, 3.4, 6.2);
         }
 
         function createBarricade(x, z, angle) {
@@ -333,15 +328,69 @@ game_html = """
             bar.castShadow = true; bar.receiveShadow = true;
             scene.add(bar);
 
-            addBoxCollider(x, z, 3.6, 1.2);
+            let w = Math.abs(Math.cos(angle)*3.6) + Math.abs(Math.sin(angle)*0.8);
+            let d = Math.abs(Math.sin(angle)*3.6) + Math.abs(Math.cos(angle)*0.8);
+            addBoxCollider(x, z, w, d);
         }
 
+        function createBurningBarrel(x, z) {
+            let barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 1.4, 16), burntMetal);
+            barrel.position.set(x, 0.7, z);
+            barrel.castShadow = true;
+            scene.add(barrel);
+
+            let fire = new THREE.Mesh(new THREE.ConeGeometry(0.4, 0.8, 8), fireEmissive);
+            fire.position.set(x, 1.6, z);
+            scene.add(fire);
+
+            let light = new THREE.PointLight(0xff4500, 2.0, 8);
+            light.position.set(x, 1.8, z);
+            scene.add(light);
+
+            addBoxCollider(x, z, 1.2, 1.2);
+        }
+
+        function createStreetLight(x, z) {
+            let pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 6.0, 12), darkIron);
+            pole.position.set(x, 3.0, z);
+            pole.castShadow = true;
+            scene.add(pole);
+
+            let lamp = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 1.2), heavySteel);
+            lamp.position.set(x, 6.0, z - 0.4);
+            scene.add(lamp);
+
+            let light = new THREE.SpotLight(0xffa500, 3.0, 15, Math.PI / 4, 0.5);
+            light.position.set(x, 5.9, z - 0.4);
+            light.target.position.set(x, 0, z - 2.0);
+            scene.add(light);
+            scene.add(light.target);
+
+            addBoxCollider(x, z, 0.8, 0.8);
+        }
+
+        // 맵 전역에 장애물 대량 배치
         createDestroyedTruck(-5, 6, 0.4);
         createDestroyedTruck(7, -10, -0.6);
+        createDestroyedTruck(-12, 22, 1.2);
+        createDestroyedTruck(10, -26, -0.3);
+
         createBarricade(-2, -18, 0.2);
         createBarricade(3, 16, -0.4);
         createBarricade(-13, 0, 1.57);
         createBarricade(13, 0, 1.57);
+        createBarricade(-5, -30, 0.8);
+        createBarricade(8, 28, -0.5);
+
+        createBurningBarrel(-8, -4);
+        createBurningBarrel(9, 8);
+        createBurningBarrel(-3, 25);
+        createBurningBarrel(4, -22);
+
+        createStreetLight(-11, -12);
+        createStreetLight(11, 12);
+        createStreetLight(-11, 12);
+        createStreetLight(11, -12);
 
         // --- 헤비 로봇 (봇) ---
         function createHeavyBot(spawnPos) {
@@ -563,13 +612,12 @@ game_html = """
             for (let i = 0; i < 4; i++) bots.push(createHeavyBot(ALLEY_SPAWNS[i]));
         }
 
-        // 완벽한 충돌 검사 알고리즘 (AABB 슬라이딩 방식)
+        // 완벽 충돌 슬라이딩 이동 처리
         function checkCollisionAndMove(currentPos, moveVector) {
             let nextPos = currentPos.clone().add(moveVector);
 
             for (let c of colliders) {
                 if (nextPos.x > c.minX && nextPos.x < c.maxX && nextPos.z > c.minZ && nextPos.z < c.maxZ) {
-                    // 충돌 감지 시 축별 슬라이딩 처리 (X축, Z축 별도 검사)
                     let checkX = currentPos.clone().add(new THREE.Vector3(moveVector.x, 0, 0));
                     if (checkX.x > c.minX && checkX.x < c.maxX && currentPos.z > c.minZ && currentPos.z < c.maxZ) {
                         moveVector.x = 0;
@@ -587,7 +635,7 @@ game_html = """
             requestAnimationFrame(animate);
             if (isGameOver) return;
 
-            // 이동 벡터 계산
+            // WASD 이동
             let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
             forward.y = 0; forward.normalize();
             let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
@@ -605,7 +653,7 @@ game_html = """
             }
             camera.position.y = PLAYER_HEIGHT;
 
-            // 파티클 연산
+            // 타격 파티클 애니메이션
             sparks.forEach((sp, idx) => {
                 sp.life -= 0.05;
                 let pos = sp.system.geometry.attributes.position.array;
@@ -620,7 +668,7 @@ game_html = """
                 }
             });
 
-            // 봇 이동 및 충돌 처리
+            // 봇 AI 및 이동 충돌 연산
             bots.forEach(bot => {
                 let dir = new THREE.Vector3().subVectors(camera.position, bot.position);
                 dir.y = 0;
