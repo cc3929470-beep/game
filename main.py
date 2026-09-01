@@ -1,9 +1,9 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="SNIPER", layout="wide")
-st.title("🎯 SNIPER: HIGH DETAIL")
-st.caption("🎮 조작법: [화면 클릭] 포커스 | WASD = 이동 | 마우스 드래그 = 시선 전환 (전방위 Y축 포함) | 좌클릭 = 사격 | 우클릭 = 스나이퍼 조준(ADS)")
+st.set_page_config(page_title="SNIPER: MORNING MARKET", layout="wide")
+st.title("🎯 SNIPER: MORNING MARKET (MAX GRAPHICS)")
+st.caption("🎮 조작법: [화면 클릭] 포커스 | WASD = 이동 | 마우스 드래그 = 전방위 자유 시선 전환 (하늘/바닥 완전 자유) | 좌클릭 = 사격 | 우클릭 = 스나이퍼 조준(ADS)")
 
 game_html = """
 <!DOCTYPE html>
@@ -11,7 +11,7 @@ game_html = """
 <head>
     <meta charset="UTF-8">
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050811; font-family: 'Segoe UI', sans-serif; user-select: none; }
+        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Segoe UI', sans-serif; user-select: none; }
         #crosshair {
             position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
             transform: translate(-50%, -50%); pointer-events: none; z-index: 10;
@@ -63,45 +63,41 @@ game_html = """
     <div id="game-over">MISSION FAILED<br><span style="font-size:18px; color:#fff;">클릭하여 다시 시작</span></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
         window.focus();
         document.addEventListener('contextmenu', event => event.preventDefault());
 
         let scene = new THREE.Scene();
-        scene.fog = new THREE.FogExp2(0x0a0f1d, 0.015);
-        
-        // 하늘 및 분위기
-        let vertexShader = `
-            varying vec3 vWorldPosition;
-            void main() {
-                vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-                vWorldPosition = worldPosition.xyz;
-                gl_Position = projectionMatrix * viewMatrix * worldPosition;
-            }
-        `;
-        let fragmentShader = `
-            uniform vec3 topColor;
-            uniform vec3 bottomColor;
-            uniform float offset;
-            uniform float exponent;
-            varying vec3 vWorldPosition;
-            void main() {
-                float h = normalize(vWorldPosition + offset).y;
-                gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);
-            }
-        `;
-        let uniforms = {
-            topColor: { value: new THREE.Color(0x0d1527) },
-            bottomColor: { value: new THREE.Color(0x1a2638) },
-            offset: { value: 100 },
-            exponent: { value: 0.8 }
-        };
-        let skyGeo = new THREE.SphereGeometry(400, 32, 15);
-        let skyMat = new THREE.ShaderMaterial({ vertexShader, fragmentShader, uniforms, side: THREE.BackSide });
-        let sky = new THREE.Mesh(skyGeo, skyMat);
-        scene.add(sky);
+        scene.fog = new THREE.FogExp2(0xfff3e0, 0.008);
+
+        // 아침 하늘 스카이돔
+        let skyGeo = new THREE.SphereGeometry(350, 32, 16);
+        let skyMat = new THREE.ShaderMaterial({
+            vertexShader: `
+                varying vec3 vWorldPosition;
+                void main() {
+                    vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                    vWorldPosition = worldPosition.xyz;
+                    gl_Position = projectionMatrix * viewMatrix * worldPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 topColor;
+                uniform vec3 bottomColor;
+                varying vec3 vWorldPosition;
+                void main() {
+                    float h = normalize(vWorldPosition + 50.0).y;
+                    gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
+                }
+            `,
+            uniforms: {
+                topColor: { value: new THREE.Color(0x38bdf8) },    // 맑은 아침 하늘색
+                bottomColor: { value: new THREE.Color(0xffedd5) } // 아침 노을/햇살 감성
+            },
+            side: THREE.BackSide
+        });
+        scene.add(new THREE.Mesh(skyGeo, skyMat));
 
         let camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 1000);
         let renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -110,140 +106,166 @@ game_html = """
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        renderer.toneMappingExposure = 1.2;
+        renderer.toneMappingExposure = 1.25;
         document.body.appendChild(renderer.domElement);
-
-        let controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enablePan = false;
-        controls.enableZoom = false;
-        // 마우스 Y축 제한 해제 (하늘부터 바로 밑 바닥까지 회전 가능)
-        controls.minPolarAngle = 0.01;
-        controls.maxPolarAngle = Math.PI - 0.01;
 
         const PLAYER_HEIGHT = 2.0;
         camera.position.set(0, PLAYER_HEIGHT, 0);
-        controls.target.set(0, PLAYER_HEIGHT, -1);
 
-        // 조명
-        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-        let sun = new THREE.DirectionalLight(0xe2e8f0, 1.5);
-        sun.position.set(50, 70, 30);
+        // --- 마우스 드래그 기반 자유 시선 회전 시스템 ---
+        let pitch = 0, yaw = 0;
+        let isMouseDown = false;
+        let prevMousePos = { x: 0, y: 0 };
+
+        document.addEventListener('mousedown', (e) => {
+            if (e.button === 0 || e.button === 2) {
+                isMouseDown = true;
+                prevMousePos = { x: e.clientX, y: e.clientY };
+            }
+        });
+
+        document.addEventListener('mouseup', () => { isMouseDown = false; });
+        document.addEventListener('mousemove', (e) => {
+            if (!isMouseDown) return;
+            let deltaX = e.clientX - prevMousePos.x;
+            let deltaY = e.clientY - prevMousePos.y;
+            prevMousePos = { x: e.clientX, y: e.clientY };
+
+            let sensitivity = 0.003;
+            yaw -= deltaX * sensitivity;
+            pitch -= deltaY * sensitivity;
+
+            // 상하 제한을 89도까지 풀어 거의 수직으로 위/아래를 볼 수 있게 보장
+            let maxPitch = Math.PI / 2 - 0.01;
+            pitch = Math.max(-maxPitch, Math.min(maxPitch, pitch));
+
+            let euler = new THREE.Euler(pitch, yaw, 0, 'YXZ');
+            camera.quaternion.setFromEuler(euler);
+        });
+
+        // 조명 (밝은 아침 햇살)
+        scene.add(new THREE.AmbientLight(0xfff7ed, 0.75));
+        let sun = new THREE.DirectionalLight(0xffedd5, 1.8);
+        sun.position.set(60, 80, 40);
         sun.castShadow = true;
         sun.shadow.mapSize.width = 2048;
         sun.shadow.mapSize.height = 2048;
         sun.shadow.camera.near = 0.5;
-        sun.shadow.camera.far = 150;
-        let d = 50;
+        sun.shadow.camera.far = 200;
+        let d = 60;
         sun.shadow.camera.left = -d; sun.shadow.camera.right = d;
         sun.shadow.camera.top = d; sun.shadow.camera.bottom = -d;
         scene.add(sun);
 
-        // 지형/건축물
-        let wallMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7, metalness: 0.2 });
-        let roadMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-        let grassMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.9 });
+        // --- 아침 재래시장 맵 제작 ---
+        let floorMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.8, metalness: 0.1 });
+        let stallWood = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
+        let awningRed = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.4 });
+        let awningBlue = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 });
+        let crateMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 });
+        let bldgMat1 = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.6 });
+        let bldgMat2 = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.5 });
 
-        let floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), grassMat);
+        let floor = new THREE.Mesh(new THREE.PlaneGeometry(120, 120), floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
 
-        let mainRoad = new THREE.Mesh(new THREE.PlaneGeometry(20, 100), roadMat);
-        mainRoad.rotation.x = -Math.PI / 2;
-        mainRoad.position.y = 0.01;
-        mainRoad.receiveShadow = true;
-        scene.add(mainRoad);
+        // 시장 상점 좌판 생성 함수
+        function createMarketStall(x, z, angle, clothMat) {
+            let stall = new THREE.Group();
+            
+            // 기둥 및 카운터
+            let counter = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.1, 1.8), stallWood);
+            counter.position.y = 0.55; counter.castShadow = true; counter.receiveShadow = true;
+            stall.add(counter);
 
-        // --- 디테일 총기 제작 함수 ---
+            // 차양 (천막 어닝)
+            let roof = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.1, 2.2), clothMat);
+            roof.position.set(0, 2.6, 0); roof.rotation.x = 0.15; roof.castShadow = true;
+            stall.add(roof);
+
+            let pole1 = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6), stallWood);
+            pole1.position.set(-1.7, 1.3, -0.8);
+            let pole2 = pole1.clone(); pole2.position.set(1.7, 1.3, -0.8);
+            stall.add(pole1, pole2);
+
+            // 상점 물건 (박스/야채 더미 연출)
+            for (let i = 0; i < 4; i++) {
+                let item = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.3, 0.5), crateMat);
+                item.position.set(-1 + i * 0.6, 1.25, 0);
+                stall.add(item);
+            }
+
+            stall.position.set(x, 0, z);
+            stall.rotation.y = angle;
+            scene.add(stall);
+        }
+
+        // 건물 및 상점 배치
+        function createBuilding(x, z, w, h, d, mat) {
+            let bldg = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+            bldg.position.set(x, h/2, z);
+            bldg.castShadow = true; bldg.receiveShadow = true;
+            scene.add(bldg);
+        }
+
+        // 복잡한 시장 골목 형성
+        for (let i = -40; i <= 40; i += 12) {
+            createBuilding(-18, i, 12, 10 + (Math.abs(i)%3)*3, 10, bldgMat1);
+            createBuilding(18, i, 12, 10 + (Math.abs(i)%2)*4, 10, bldgMat2);
+
+            createMarketStall(-10, i, Math.PI / 2, i % 2 === 0 ? awningRed : awningBlue);
+            createMarketStall(10, i, -Math.PI / 2, i % 2 === 0 ? awningBlue : awningRed);
+        }
+
+        // 중앙 시장 상자들
+        for (let j = 0; j < 12; j++) {
+            let crate = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 1.2), crateMat);
+            crate.position.set((Math.random()-0.5)*12, 0.6, (Math.random()-0.5)*50);
+            crate.rotation.y = Math.random();
+            crate.castShadow = true; crate.receiveShadow = true;
+            scene.add(crate);
+        }
+
+        // --- 실사 스나이퍼 소총 ---
         function createDetailedSniper() {
             let gun = new THREE.Group();
-
             let metalDark = new THREE.MeshStandardMaterial({ color: 0x111625, roughness: 0.35, metalness: 0.85 });
             let metalSteel = new THREE.MeshStandardMaterial({ color: 0x2e384d, roughness: 0.25, metalness: 0.95 });
             let polymer = new THREE.MeshStandardMaterial({ color: 0x1e2638, roughness: 0.6, metalness: 0.1 });
             let goldAccent = new THREE.MeshStandardMaterial({ color: 0xc59b27, roughness: 0.3, metalness: 0.9 });
-            let lensGlass = new THREE.MeshStandardMaterial({ color: 0x00f5a0, emissive: 0x00a86b, emissiveIntensity: 0.6, roughness: 0.1, metalness: 0.9 });
+            let lensGlass = new THREE.MeshStandardMaterial({ color: 0x00f5a0, emissive: 0x00a86b, emissiveIntensity: 0.6, roughness: 0.1 });
 
-            // 총열 (Barrel)
             let mainBarrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.032, 2.2, 24), metalSteel);
-            mainBarrel.rotateX(Math.PI / 2);
-            mainBarrel.position.set(0, 0, -1.1);
+            mainBarrel.rotateX(Math.PI / 2); mainBarrel.position.set(0, 0, -1.1);
 
-            // 포구 제동기 (Muzzle Brake)
-            let muzzleBrake = new THREE.Group();
-            let mbBody = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.35, 16), metalDark);
-            mbBody.rotateX(Math.PI / 2);
-            let mbHole1 = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.02, 0.1), metalSteel);
-            mbHole1.position.set(0, 0, 0);
-            muzzleBrake.add(mbBody, mbHole1);
-            muzzleBrake.position.set(0, 0, -2.35);
+            let muzzleBrake = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.35, 16), metalDark);
+            muzzleBrake.rotateX(Math.PI / 2); muzzleBrake.position.set(0, 0, -2.35);
 
-            // 총열 덮개 (Handguard / Rail)
             let handguard = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 1.2), polymer);
             handguard.position.set(0, -0.01, -0.8);
 
-            // 2각대 (Bipod)
-            let bipodMount = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.06, 0.15), metalSteel);
-            bipodMount.position.set(0, -0.09, -1.3);
-            let legL = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5), metalDark);
-            legL.position.set(-0.08, -0.28, -1.3); legL.rotation.z = 0.25;
-            let legR = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.5), metalDark);
-            legR.position.set(0.08, -0.28, -1.3); legR.rotation.z = -0.25;
-            gun.add(bipodMount, legL, legR);
-
-            // 리시버 / 몸통 (Receiver)
             let receiver = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.2, 0.8), metalDark);
             receiver.position.set(0, -0.01, -0.1);
 
-            // 장전 손잡이 (Bolt Handle)
-            let boltHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.15), goldAccent);
-            boltHandle.rotation.z = Math.PI / 2;
-            boltHandle.position.set(0.1, 0.02, -0.15);
-            let boltKnob = new THREE.Mesh(new THREE.SphereGeometry(0.025, 12, 12), goldAccent);
-            boltKnob.position.set(0.17, 0.02, -0.15);
-            gun.add(boltHandle, boltKnob);
-
-            // 스코프 (Scope & Mount)
-            let scopeMount = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.4), metalSteel);
-            scopeMount.position.set(0, 0.12, -0.2);
-
             let scopeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.8, 24), metalDark);
-            scopeBody.rotateX(Math.PI / 2);
-            scopeBody.position.set(0, 0.19, -0.2);
-
-            let scopeFrontBell = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.065, 0.2, 24), metalDark);
-            scopeFrontBell.rotateX(Math.PI / 2);
-            scopeFrontBell.position.set(0, 0.19, -0.65);
+            scopeBody.rotateX(Math.PI / 2); scopeBody.position.set(0, 0.19, -0.2);
 
             let scopeLens = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.01, 24), lensGlass);
-            scopeLens.rotateX(Math.PI / 2);
-            scopeLens.position.set(0, 0.19, -0.74);
+            scopeLens.rotateX(Math.PI / 2); scopeLens.position.set(0, 0.19, -0.74);
 
-            let scopeDial = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.04, 12), goldAccent);
-            scopeDial.position.set(0, 0.26, -0.2);
-
-            gun.add(scopeMount, scopeBody, scopeFrontBell, scopeLens, scopeDial);
-
-            // 탄창 (Magazine)
             let mag = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.38, 0.28), polymer);
-            mag.position.set(0, -0.24, -0.25);
-            mag.rotation.x = -0.15;
+            mag.position.set(0, -0.24, -0.25); mag.rotation.x = -0.15;
 
-            // 권총 손잡이 (Grip)
             let grip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.14), polymer);
-            grip.position.set(0, -0.2, 0.1);
-            grip.rotation.x = -0.4;
+            grip.position.set(0, -0.2, 0.1); grip.rotation.x = -0.4;
 
-            // 개머리판 (Stock)
             let stock = new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.18, 0.65), polymer);
             stock.position.set(0, -0.01, 0.48);
 
-            let cheekRest = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.3), metalSteel);
-            cheekRest.position.set(0, 0.09, 0.45);
+            gun.add(mainBarrel, muzzleBrake, handguard, receiver, scopeBody, scopeLens, mag, grip, stock);
 
-            gun.add(mainBarrel, muzzleBrake, handguard, receiver, mag, grip, stock, cheekRest);
-
-            // 총구 화염 (Muzzle Flash)
             let flashMat = new THREE.MeshBasicMaterial({ color: 0xffcc44, transparent: true, opacity: 0 });
             let muzzleFlash = new THREE.Mesh(new THREE.OctahedronGeometry(0.3), flashMat);
             muzzleFlash.position.set(0, 0, -2.6);
@@ -263,65 +285,35 @@ game_html = """
         camera.add(gun);
         scene.add(camera);
 
-        // --- 디테일 전술 로봇(Bot) 제작 함수 ---
+        // --- 정밀 전술 로봇(Bot) ---
         function createDetailedBot() {
             let bot = new THREE.Group();
             bot.userData = { hp: 100 };
 
-            let armorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.8 });
-            let darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.9 });
+            let armorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 });
             let redGlow = new THREE.MeshStandardMaterial({ color: 0xff1e43, emissive: 0xff1e43, emissiveIntensity: 2.0 });
-            let cyanGlow = new THREE.MeshStandardMaterial({ color: 0x00f5a0, emissive: 0x00f5a0, emissiveIntensity: 1.5 });
 
-            // 1. 머리 (Head & Optics)
             let headGroup = new THREE.Group();
             let headBase = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.32, 0.38), armorMat);
             headBase.castShadow = true;
-
             let visor = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.1, 0.05), redGlow);
             visor.position.set(0, 0.04, -0.2);
-
-            let subSensor = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.08, 12), cyanGlow);
-            subSensor.rotateX(Math.PI / 2);
-            subSensor.position.set(-0.1, -0.08, -0.2);
-
-            headGroup.add(headBase, visor, subSensor);
+            headGroup.add(headBase, visor);
             headGroup.position.y = 2.1;
             headGroup.userData = { type: 'head' };
 
-            // 2. 상체 (Torso & Armor Plates)
             let bodyGroup = new THREE.Group();
-            let chestCore = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.85, 0.45), darkMetal);
+            let chestCore = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.85, 0.45), armorMat);
             chestCore.position.y = 1.35; chestCore.castShadow = true;
-
-            let plateL = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.5, 0.1), armorMat);
-            plateL.position.set(-0.2, 1.45, -0.25); plateL.rotation.y = -0.15;
-            let plateR = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.5, 0.1), armorMat);
-            plateR.position.set(0.2, 1.45, -0.25); plateR.rotation.y = 0.15;
-
-            let reactor = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.1, 16), redGlow);
-            reactor.rotateX(Math.PI / 2);
-            reactor.position.set(0, 1.4, -0.24);
-
-            let shoulderL = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), armorMat);
-            shoulderL.position.set(-0.52, 1.65, 0);
-            let shoulderR = new THREE.Mesh(new THREE.SphereGeometry(0.22, 16, 16), armorMat);
-            shoulderR.position.set(0.52, 1.65, 0);
-
-            bodyGroup.add(chestCore, plateL, plateR, reactor, shoulderL, shoulderR);
+            bodyGroup.add(chestCore);
             bodyGroup.userData = { type: 'body' };
 
-            // 3. 하체 및 다리 (Legs & Joints)
             let legGroup = new THREE.Group();
-            let hip = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.3), darkMetal);
-            hip.position.y = 0.85;
-
             let legL = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.8, 12), armorMat);
             legL.position.set(-0.22, 0.4, 0); legL.castShadow = true;
             let legR = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.08, 0.8, 12), armorMat);
             legR.position.set(0.22, 0.4, 0); legR.castShadow = true;
-
-            legGroup.add(hip, legL, legR);
+            legGroup.add(legL, legR);
             legGroup.userData = { type: 'legs' };
 
             bot.add(headGroup, bodyGroup, legGroup);
@@ -347,13 +339,11 @@ game_html = """
 
         function createSparks(pos, colorHex) {
             let pGeo = new THREE.BufferGeometry();
-            let count = 18;
+            let count = 20;
             let positions = new Float32Array(count * 3);
             let velocities = [];
             for (let i = 0; i < count; i++) {
-                positions[i*3] = pos.x;
-                positions[i*3+1] = pos.y;
-                positions[i*3+2] = pos.z;
+                positions[i*3] = pos.x; positions[i*3+1] = pos.y; positions[i*3+2] = pos.z;
                 velocities.push(new THREE.Vector3((Math.random()-0.5)*0.35, (Math.random()-0.5)*0.35, (Math.random()-0.5)*0.35));
             }
             pGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -365,9 +355,7 @@ game_html = """
 
         function showHitFeedback(text, color) {
             let fb = document.getElementById('hit-feedback');
-            fb.innerText = text;
-            fb.style.color = color;
-            fb.style.opacity = '1';
+            fb.innerText = text; fb.style.color = color; fb.style.opacity = '1';
             setTimeout(() => { fb.style.opacity = '0'; }, 500);
         }
 
@@ -377,8 +365,7 @@ game_html = """
         document.addEventListener('mousedown', (e) => {
             if (e.button === 2) {
                 isAiming = true;
-                camera.fov = 22;
-                camera.updateProjectionMatrix();
+                camera.fov = 22; camera.updateProjectionMatrix();
                 gun.position.copy(AIM_GUN_POS);
                 document.getElementById('scope-overlay').style.display = 'block';
                 document.getElementById('crosshair').style.display = 'none';
@@ -388,8 +375,7 @@ game_html = """
         document.addEventListener('mouseup', (e) => {
             if (e.button === 2) {
                 isAiming = false;
-                camera.fov = 65;
-                camera.updateProjectionMatrix();
+                camera.fov = 65; camera.updateProjectionMatrix();
                 gun.position.copy(NORMAL_GUN_POS);
                 document.getElementById('scope-overlay').style.display = 'none';
                 document.getElementById('crosshair').style.display = 'block';
@@ -403,20 +389,16 @@ game_html = """
             canShoot = false;
 
             flashMat.opacity = 1.0;
-            gun.position.z += 0.22;
-            gun.rotation.x = 0.25;
+            gun.position.z += 0.22; gun.rotation.x = 0.25;
             setTimeout(() => { flashMat.opacity = 0; }, 60);
             setTimeout(() => {
                 gun.position.copy(isAiming ? AIM_GUN_POS : NORMAL_GUN_POS);
-                gun.rotation.x = 0;
-                canShoot = true;
+                gun.rotation.x = 0; canShoot = true;
             }, 450);
 
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
             let allBotMeshes = [];
-            bots.forEach(b => {
-                b.traverse(child => { if (child.isMesh) allBotMeshes.push(child); });
-            });
+            bots.forEach(b => { b.traverse(child => { if (child.isMesh) allBotMeshes.push(child); }); });
 
             let intersects = raycaster.intersectObjects(allBotMeshes);
             if (intersects.length > 0) {
@@ -429,26 +411,20 @@ game_html = """
                 }
 
                 let hitBot = hitMesh.parent;
-                while (hitBot && !bots.includes(hitBot)) {
-                    hitBot = hitBot.parent;
-                }
+                while (hitBot && !bots.includes(hitBot)) { hitBot = hitBot.parent; }
 
                 if (hitBot && partGroup) {
                     let hitType = partGroup.userData.type;
-                    let dmg = 0;
-                    let sparkColor = 0x00f5a0;
+                    let dmg = 0, sparkColor = 0x00f5a0;
 
                     if (hitType === 'head') {
-                        dmg = 100;
-                        sparkColor = 0xff0055;
+                        dmg = 100; sparkColor = 0xff0055;
                         showHitFeedback("CRITICAL HEADSHOT! -100", "#ff0055");
                     } else if (hitType === 'body') {
-                        dmg = 50;
-                        sparkColor = 0xffaa00;
+                        dmg = 50; sparkColor = 0xffaa00;
                         showHitFeedback("BODY HIT -50", "#ffaa00");
                     } else if (hitType === 'legs') {
-                        dmg = 25;
-                        sparkColor = 0x00d2ff;
+                        dmg = 25; sparkColor = 0x00d2ff;
                         showHitFeedback("LEG HIT -25", "#00d2ff");
                     }
 
@@ -472,7 +448,8 @@ game_html = """
             document.getElementById('score').innerText = '0';
             document.getElementById('game-over').style.display = 'none';
             camera.position.set(0, PLAYER_HEIGHT, 0);
-            controls.target.set(0, PLAYER_HEIGHT, -1);
+            pitch = 0; yaw = 0;
+            camera.quaternion.setFromEuler(new THREE.Euler(0, 0, 0));
             for (let i = 0; i < 5; i++) bots.push(createDetailedBot());
         }
 
@@ -480,45 +457,30 @@ game_html = """
             requestAnimationFrame(animate);
             if (isGameOver) return;
 
-            // 시선 방향 계산
-            let lookDir = new THREE.Vector3();
-            camera.getWorldDirection(lookDir);
-            
-            let forward = lookDir.clone();
-            forward.y = 0;
-            forward.normalize();
+            // 시선 이동 기반 키보드 WASD 움직임
+            let forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+            forward.y = 0; forward.normalize();
 
-            let right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+            let right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+            right.y = 0; right.normalize();
+
             let move = new THREE.Vector3();
-
             if (keys.KeyW) move.add(forward);
             if (keys.KeyS) move.sub(forward);
             if (keys.KeyD) move.add(right);
             if (keys.KeyA) move.sub(right);
 
             if (move.lengthSq() > 0) {
-                let moveSpeed = 0.085;
-                move.normalize().multiplyScalar(moveSpeed);
+                move.normalize().multiplyScalar(0.09);
                 camera.position.add(move);
-                controls.target.add(move);
             }
-
             camera.position.y = PLAYER_HEIGHT;
-
-            // 마우스 Y축 드래그 시 카메라 위치 고정 처리
-            let camPos = camera.position.clone();
-            controls.update();
-            let lookOffset = new THREE.Vector3().subVectors(controls.target, camera.position);
-            camera.position.copy(camPos);
-            controls.target.copy(camPos).add(lookOffset);
 
             sparks.forEach((sp, idx) => {
                 sp.life -= 0.05;
                 let pos = sp.system.geometry.attributes.position.array;
                 for (let i = 0; i < sp.vels.length; i++) {
-                    pos[i*3] += sp.vels[i].x;
-                    pos[i*3+1] += sp.vels[i].y;
-                    pos[i*3+2] += sp.vels[i].z;
+                    pos[i*3] += sp.vels[i].x; pos[i*3+1] += sp.vels[i].y; pos[i*3+2] += sp.vels[i].z;
                 }
                 sp.system.geometry.attributes.position.needsUpdate = true;
                 sp.system.material.opacity = sp.life;
