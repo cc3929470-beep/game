@@ -1,259 +1,1047 @@
 import streamlit as st
 import streamlit.components.v1 as components
 
-st.set_page_config(page_title="VALORANT Web Edition", page_icon="🎯", layout="wide")
+st.set_page_config(page_title="TACTICAL AIM RANGE", layout="wide")
 
-st.title("🎯 VALORANT 3D Web Edition")
+st.title("🎯 TACTICAL AIM TRAINING RANGE")
+st.caption("WASD 이동 | Shift 질주 | 마우스 시점 | 좌클릭 사격 | R 재시작")
 
-# 클릭 안내 화면 제거 & 즉시 실행 버전
-game_html = """
-<!DOCTYPE html>
+html = r"""
+<!doctype html>
 <html>
 <head>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: 'Arial', sans-serif; background: #111; color: white; }
-        #canvas-container { width: 100vw; height: 85vh; position: relative; }
-        #crosshair {
-            position: absolute; top: 50%; left: 50%;
-            width: 8px; height: 8px; background: #00ffcc;
-            transform: translate(-50%, -50%); border-radius: 50%;
-            pointer-events: none; z-index: 10;
-        }
-        #hud {
-            position: absolute; bottom: 20px; left: 20px;
-            font-size: 20px; font-weight: bold; background: rgba(0,0,0,0.6);
-            padding: 15px; border-radius: 8px; border: 1px solid #333;
-            pointer-events: none; z-index: 10;
-        }
-        #guide {
-            position: absolute; top: 15px; right: 20px;
-            background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 6px;
-            font-size: 14px; pointer-events: none; z-index: 10; border: 1px solid #444;
-        }
-    </style>
+<meta charset="utf-8">
+
+<style>
+html, body {
+    margin: 0;
+    overflow: hidden;
+    background: #101419;
+    font-family: Arial;
+    color: #fff;
+}
+
+#ui {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+#top {
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+}
+
+#timer {
+    font-size: 38px;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+#score {
+    font-size: 16px;
+    color: #ffcc66;
+    margin-top: 6px;
+}
+
+#cross {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    transform: translate(-50%, -50%);
+}
+
+#cross:before,
+#cross:after {
+    content: "";
+    position: absolute;
+    background: #fff;
+    box-shadow: 0 0 5px #fff;
+}
+
+#cross:before {
+    width: 2px;
+    height: 18px;
+    left: 6px;
+    top: -2px;
+}
+
+#cross:after {
+    height: 2px;
+    width: 18px;
+    top: 6px;
+    left: -2px;
+}
+
+#hint {
+    position: absolute;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #aab4bd;
+    font-size: 12px;
+}
+</style>
 </head>
+
 <body>
-    <div id="canvas-container">
-        <div id="crosshair"></div>
-        <div id="guide">
-            <b>조작법:</b> W,A,S,D 이동 | 마우스 에임 | 좌클릭 사격 | E 대시 | C 연막
-        </div>
-        <div id="hud">
-            <div>HP: <span id="hp" style="color:#00ffcc;">100</span> | SHIELD: <span id="shield" style="color:#00aaff;">50</span></div>
-            <div>AMMO: <span id="ammo" style="color:#ffcc00;">25 / 75</span></div>
-            <div style="font-size: 16px; margin-top: 5px; color: #ff4655;">남은 적: <span id="enemies">3</span></div>
+
+<div id="ui">
+
+    <div id="top">
+        <div id="timer">60.0</div>
+        <div id="score">
+            SCORE 0 · HITS 0 · ACCURACY 0%
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script>
-        let camera, scene, renderer;
-        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
-        let prevTime = performance.now();
-        const velocity = new THREE.Vector3();
-        const direction = new THREE.Vector3();
-        
-        let hp = 100, ammo = 25, totalAmmo = 75;
-        let enemies = [];
-        let eCooldown = false;
+    <div id="cross"></div>
 
-        function init() {
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1a1a2e);
-            scene.fog = new THREE.Fog(0x1a1a2e, 0, 75);
+    <div id="hint">
+        CLICK TO SHOOT · WASD MOVE · R RESTART
+    </div>
 
-            camera = new THREE.PerspectiveCamera(75, window.innerWidth / (window.innerHeight * 0.85), 0.1, 1000);
-            camera.position.y = 1.6;
+</div>
 
-            // 조명
-            const light = new THREE.HemisphereLight(0xeeeeff, 0x777788, 0.75);
-            light.position.set(0.5, 1, 0.75);
-            scene.add(light);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-            dirLight.position.set(10, 20, 10);
-            scene.add(dirLight);
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-            // 바닥
-            const floorGeo = new THREE.PlaneGeometry(100, 100);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x333344 });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            scene.add(floor);
+<script>
 
-            // 엄폐물
-            const boxGeo = new THREE.BoxGeometry(3, 3, 3);
-            const boxMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
-            [[5, 1.5, -10], [-5, 1.5, -15], [10, 1.5, -20], [-10, 1.5, -5]].forEach(pos => {
-                const box = new THREE.Mesh(boxGeo, boxMat);
-                box.position.set(...pos);
-                scene.add(box);
-            });
+// ================================
+// SCENE
+// ================================
 
-            // 적 생성
-            createEnemy(0, 1.5, -15);
-            createEnemy(8, 1.5, -25);
-            createEnemy(-8, 1.5, -20);
+const scene = new THREE.Scene();
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
-            const container = document.getElementById('canvas-container');
-            container.appendChild(renderer.domElement);
+scene.background = new THREE.Color(0x8d9ba1);
 
-            // 이벤트 리스너 (시작 클릭 화면 없이 바로 반응)
-            container.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('keydown', onKeyDown);
-            window.addEventListener('keyup', onKeyUp);
-            container.addEventListener('mousedown', onMouseDown);
+scene.fog = new THREE.Fog(
+    0x8d9ba1,
+    35,
+    110
+);
 
-            animate();
+
+// ================================
+// CAMERA
+// ================================
+
+const camera = new THREE.PerspectiveCamera(
+    75,
+    innerWidth / innerHeight,
+    .1,
+    200
+);
+
+camera.position.set(
+    0,
+    1.7,
+    9
+);
+
+
+// ================================
+// RENDERER
+// ================================
+
+const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    powerPreference: "high-performance"
+});
+
+renderer.setSize(
+    innerWidth,
+    innerHeight
+);
+
+renderer.setPixelRatio(
+    Math.min(devicePixelRatio, 2)
+);
+
+renderer.shadowMap.enabled = true;
+
+renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+renderer.outputEncoding =
+    THREE.sRGBEncoding;
+
+renderer.toneMapping =
+    THREE.ACESFilmicToneMapping;
+
+renderer.toneMappingExposure = 1.15;
+
+document.body.appendChild(
+    renderer.domElement
+);
+
+
+// ================================
+// LIGHTING
+// ================================
+
+scene.add(
+    new THREE.HemisphereLight(
+        0xddeeff,
+        0x3b3028,
+        2
+    )
+);
+
+
+const sun = new THREE.DirectionalLight(
+    0xffffff,
+    3
+);
+
+sun.position.set(
+    15,
+    25,
+    10
+);
+
+sun.castShadow = true;
+
+sun.shadow.mapSize.set(
+    2048,
+    2048
+);
+
+scene.add(sun);
+
+
+// ================================
+// FLOOR
+// ================================
+
+const floorMat =
+    new THREE.MeshStandardMaterial({
+        color: 0x69767a,
+        roughness: .9
+    });
+
+
+const floor = new THREE.Mesh(
+
+    new THREE.PlaneGeometry(
+        100,
+        100
+    ),
+
+    floorMat
+);
+
+floor.rotation.x = -Math.PI / 2;
+
+floor.receiveShadow = true;
+
+scene.add(floor);
+
+
+// ================================
+// MAP OBJECT FUNCTION
+// ================================
+
+function box(
+    x,
+    y,
+    z,
+    w,
+    h,
+    d,
+    color = 0x5c6468
+) {
+
+    const m = new THREE.Mesh(
+
+        new THREE.BoxGeometry(
+            w,
+            h,
+            d
+        ),
+
+        new THREE.MeshStandardMaterial({
+            color,
+            roughness: .75
+        })
+
+    );
+
+    m.position.set(
+        x,
+        y,
+        z
+    );
+
+    m.castShadow = true;
+
+    m.receiveShadow = true;
+
+    scene.add(m);
+
+    return m;
+}
+
+
+// ================================
+// TRAINING RANGE MAP
+// ================================
+
+box(
+    0,
+    5,
+    -28,
+    42,
+    10,
+    1,
+    0x4a5357
+);
+
+box(
+    -20,
+    4,
+    -5,
+    1,
+    8,
+    46,
+    0x596166
+);
+
+box(
+    20,
+    4,
+    -5,
+    1,
+    8,
+    46,
+    0x596166
+);
+
+box(
+    0,
+    4,
+    -8,
+    12,
+    8,
+    .7,
+    0x3e474b
+);
+
+box(
+    -10,
+    2.2,
+    -14,
+    5,
+    4,
+    .7,
+    0x50595d
+);
+
+box(
+    10,
+    2.2,
+    -14,
+    5,
+    4,
+    .7,
+    0x50595d
+);
+
+
+for (
+    let i = -18;
+    i <= 18;
+    i += 6
+) {
+
+    box(
+        i,
+        1,
+        -22,
+        1.4,
+        2,
+        .8,
+        0x4c565a
+    );
+
+}
+
+
+// ================================
+// TARGET MATERIALS
+// ================================
+
+const orange =
+    new THREE.MeshStandardMaterial({
+
+        color: 0xff9f1c,
+
+        emissive: 0x331500
+
+    });
+
+
+const dark =
+    new THREE.MeshStandardMaterial({
+
+        color: 0x1d2428,
+
+        roughness: .5
+
+    });
+
+
+// ================================
+// TARGET SYSTEM
+// ================================
+
+const targets = [];
+
+const targetGroup =
+    new THREE.Group();
+
+scene.add(targetGroup);
+
+
+function spawnTarget() {
+
+    const t =
+        new THREE.Group();
+
+
+    const body =
+        new THREE.Mesh(
+
+            new THREE.CylinderGeometry(
+                .55,
+                .55,
+                .13,
+                32
+            ),
+
+            orange
+        );
+
+
+    body.rotation.x =
+        Math.PI / 2;
+
+    body.castShadow = true;
+
+
+    const ring =
+        new THREE.Mesh(
+
+            new THREE.TorusGeometry(
+                .38,
+                .055,
+                10,
+                32
+            ),
+
+            dark
+        );
+
+
+    ring.rotation.x =
+        Math.PI / 2;
+
+    ring.position.z = -.08;
+
+
+    t.add(body);
+
+    t.add(ring);
+
+
+    let x =
+        (Math.random() - .5) * 24;
+
+    let z =
+        -8 - Math.random() * 32;
+
+    let y =
+        1.2 + Math.random() * 2.8;
+
+
+    t.position.set(
+        x,
+        y,
+        z
+    );
+
+
+    t.userData = {
+
+        life: 0,
+
+        phase:
+            Math.random() * 6.28
+
+    };
+
+
+    targetGroup.add(t);
+
+    targets.push(t);
+}
+
+
+// 초기 타겟 생성
+
+for (
+    let i = 0;
+    i < 8;
+    i++
+) {
+
+    spawnTarget();
+
+}
+
+
+// ================================
+// GAME VARIABLES
+// ================================
+
+let score = 0;
+
+let hits = 0;
+
+let shots = 0;
+
+let time = 60;
+
+let running = true;
+
+
+let yaw = 0;
+
+let pitch = 0;
+
+let look = false;
+
+
+let prev = {
+    x: 0,
+    y: 0
+};
+
+
+const keys = {};
+
+
+// ================================
+// KEYBOARD
+// ================================
+
+addEventListener(
+    "keydown",
+    e => {
+
+        keys[e.code] = true;
+
+        if (
+            e.code === "KeyR"
+        ) {
+
+            reset();
+
         }
 
-        function createEnemy(x, y, z) {
-            const group = new THREE.Group();
-            
-            const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 2, 16);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff4655 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            group.add(body);
+    }
+);
 
-            const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-            const head = new THREE.Mesh(headGeo, headMat);
-            head.position.y = 1.3;
-            group.add(head);
 
-            group.position.set(x, y, z);
-            group.userData = { hp: 100, head: head };
-            scene.add(group);
-            enemies.push(group);
+addEventListener(
+    "keyup",
+    e => {
+
+        keys[e.code] = false;
+
+    }
+);
+
+
+// ================================
+// MOUSE
+// ================================
+
+addEventListener(
+    "contextmenu",
+    e => e.preventDefault()
+);
+
+
+addEventListener(
+    "mousedown",
+    e => {
+
+        if (
+            e.button === 0
+        ) {
+
+            look = true;
+
+            prev = {
+                x: e.clientX,
+                y: e.clientY
+            };
+
+            shoot();
+
         }
 
-        let pitch = 0, yaw = 0;
-        function onMouseMove(event) {
-            // 화면 위에서 마우스를 움직이면 즉시 에임 회전
-            if (event.buttons === 1 || event.buttons === 0) {
-                yaw -= event.movementX * 0.003;
-                pitch -= event.movementY * 0.003;
-                pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
-                
-                camera.rotation.identity();
-                camera.rotation.y = yaw;
-                camera.rotation.x = pitch;
-                camera.rotation.order = "YXZ";
-            }
-        }
+    }
+);
 
-        function onKeyDown(e) {
-            switch (e.code) {
-                case 'KeyW': moveForward = true; break;
-                case 'KeyS': moveBackward = true; break;
-                case 'KeyA': moveLeft = true; break;
-                case 'KeyD': moveRight = true; break;
-                case 'KeyR': reload(); break;
-                case 'KeyE': useDash(); break;
-                case 'KeyC': useSmoke(); break;
-            }
-        }
 
-        function onKeyUp(e) {
-            switch (e.code) {
-                case 'KeyW': moveForward = false; break;
-                case 'KeyS': moveBackward = false; break;
-                case 'KeyA': moveLeft = false; break;
-                case 'KeyD': moveRight = false; break;
-            }
-        }
+addEventListener(
+    "mouseup",
+    () => {
 
-        function onMouseDown(e) {
-            if (ammo <= 0) return;
-            ammo--;
-            document.getElementById('ammo').innerText = `${ammo} / ${totalAmmo}`;
+        look = false;
 
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+    }
+);
 
-            const intersects = raycaster.intersectObjects(scene.children, true);
-            if (intersects.length > 0) {
-                let hitObj = intersects[0].object;
-                let parentGroup = hitObj.parent;
 
-                if (enemies.includes(parentGroup)) {
-                    let isHead = (hitObj === parentGroup.userData.head);
-                    let dmg = isHead ? 150 : 40;
-                    parentGroup.userData.hp -= dmg;
+addEventListener(
+    "mousemove",
+    e => {
 
-                    if (parentGroup.userData.hp <= 0) {
-                        scene.remove(parentGroup);
-                        enemies = enemies.filter(e => e !== parentGroup);
-                        document.getElementById('enemies').innerText = enemies.length;
+        if (!look)
+            return;
+
+
+        yaw -=
+            (
+                e.clientX -
+                prev.x
+            ) * .0025;
+
+
+        pitch =
+            Math.max(
+                -1.45,
+
+                Math.min(
+                    1.45,
+
+                    pitch -
+                    (
+                        e.clientY -
+                        prev.y
+                    ) * .0025
+                )
+            );
+
+
+        prev = {
+
+            x: e.clientX,
+
+            y: e.clientY
+
+        };
+
+
+        camera.rotation.set(
+
+            pitch,
+
+            yaw,
+
+            0,
+
+            "YXZ"
+
+        );
+
+    }
+);
+
+
+// ================================
+// SHOOTING
+// ================================
+
+const ray =
+    new THREE.Raycaster();
+
+
+function shoot() {
+
+    if (!running)
+        return;
+
+
+    shots++;
+
+
+    ray.setFromCamera(
+
+        new THREE.Vector2(
+            0,
+            0
+        ),
+
+        camera
+
+    );
+
+
+    const meshes = [];
+
+
+    targets.forEach(
+        t => {
+
+            t.traverse(
+                o => {
+
+                    if (
+                        o.isMesh
+                    ) {
+
+                        meshes.push(o);
+
                     }
+
                 }
+            );
+
+        }
+    );
+
+
+    const h =
+        ray.intersectObjects(
+            meshes,
+            false
+        );
+
+
+    if (h.length) {
+
+        let obj =
+            h[0].object;
+
+
+        while (
+
+            obj.parent &&
+
+            !targets.includes(obj)
+
+        ) {
+
+            obj =
+                obj.parent;
+
+        }
+
+
+        const idx =
+            targets.indexOf(obj);
+
+
+        if (idx >= 0) {
+
+            targetGroup.remove(obj);
+
+            targets.splice(
+                idx,
+                1
+            );
+
+
+            hits++;
+
+            score += 100;
+
+
+            setTimeout(
+
+                spawnTarget,
+
+                180
+
+            );
+
+        }
+
+    }
+
+}
+
+
+// ================================
+// RESET
+// ================================
+
+function reset() {
+
+    score = 0;
+
+    hits = 0;
+
+    shots = 0;
+
+    time = 60;
+
+    running = true;
+
+
+    while (
+        targets.length
+    ) {
+
+        targetGroup.remove(
+            targets.pop()
+        );
+
+    }
+
+
+    for (
+        let i = 0;
+        i < 8;
+        i++
+    ) {
+
+        spawnTarget();
+
+    }
+
+}
+
+
+// ================================
+// GAME LOOP
+// ================================
+
+const clock =
+    new THREE.Clock();
+
+
+function loop() {
+
+    requestAnimationFrame(loop);
+
+
+    const dt =
+        Math.min(
+            clock.getDelta(),
+            .05
+        );
+
+
+    if (running) {
+
+        time -= dt;
+
+
+        if (time <= 0) {
+
+            time = 0;
+
+            running = false;
+
+        }
+
+
+        const f =
+            new THREE.Vector3(
+                0,
+                0,
+                -1
+            )
+            .applyQuaternion(
+                camera.quaternion
+            );
+
+
+        f.y = 0;
+
+        f.normalize();
+
+
+        const r =
+            new THREE.Vector3(
+                1,
+                0,
+                0
+            )
+            .applyQuaternion(
+                camera.quaternion
+            );
+
+
+        r.y = 0;
+
+        r.normalize();
+
+
+        const move =
+            new THREE.Vector3();
+
+
+        if (keys.KeyW)
+            move.add(f);
+
+        if (keys.KeyS)
+            move.sub(f);
+
+        if (keys.KeyD)
+            move.add(r);
+
+        if (keys.KeyA)
+            move.sub(r);
+
+
+        if (
+            move.lengthSq()
+        ) {
+
+            camera.position.addScaledVector(
+
+                move.normalize(),
+
+                dt *
+                (
+                    keys.ShiftLeft
+                        ? 8
+                        : 4
+                )
+
+            );
+
+        }
+
+
+        targets.forEach(
+            t => {
+
+                t.userData.life += dt;
+
+
+                t.position.y +=
+
+                    Math.sin(
+
+                        t.userData.life *
+                        2 +
+
+                        t.userData.phase
+
+                    )
+
+                    *
+
+                    dt *
+
+                    .25;
+
+
+                t.rotation.z =
+
+                    Math.sin(
+
+                        t.userData.life *
+                        2
+
+                    )
+
+                    *
+
+                    .12;
+
             }
-        }
+        );
 
-        function useDash() {
-            if (eCooldown) return;
-            eCooldown = true;
-            const dashDir = new THREE.Vector3();
-            camera.getWorldDirection(dashDir);
-            camera.position.addScaledVector(dashDir, 8);
-            setTimeout(() => { eCooldown = false; }, 3000);
-        }
+    }
 
-        function useSmoke() {
-            const smokeGeo = new THREE.SphereGeometry(3, 16, 16);
-            const smokeMat = new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true, opacity: 0.6 });
-            const smoke = new THREE.Mesh(smokeGeo, smokeMat);
-            
-            const dir = new THREE.Vector3();
-            camera.getWorldDirection(dir);
-            smoke.position.copy(camera.position).addScaledVector(dir, 6);
-            scene.add(smoke);
 
-            setTimeout(() => { scene.remove(smoke); }, 5000);
-        }
+    document.getElementById(
+        "timer"
+    ).textContent =
+        time.toFixed(1);
 
-        function reload() {
-            setTimeout(() => {
-                ammo = 25;
-                document.getElementById('ammo').innerText = `${ammo} / ${totalAmmo}`;
-            }, 1000);
-        }
 
-        function animate() {
-            requestAnimationFrame(animate);
-            const time = performance.now();
-            const delta = (time - prevTime) / 1000;
+    const acc =
+        shots
 
-            velocity.x -= velocity.x * 10.0 * delta;
-            velocity.z -= velocity.z * 10.0 * delta;
+        ?
 
-            direction.z = Number(moveForward) - Number(moveBackward);
-            direction.x = Number(moveRight) - Number(moveLeft);
-            direction.normalize();
+        Math.round(
+            hits /
+            shots *
+            100
+        )
 
-            if (moveForward || moveBackward) velocity.z -= direction.z * 150.0 * delta;
-            if (moveLeft || moveRight) velocity.x -= direction.x * 150.0 * delta;
+        :
 
-            const camDir = new THREE.Vector3();
-            camera.getWorldDirection(camDir);
-            camDir.y = 0;
-            camDir.normalize();
+        0;
 
-            const sideDir = new THREE.Vector3().crossVectors(camera.up, camDir).normalize();
 
-            camera.position.addScaledVector(camDir, -velocity.z * delta * 0.1);
-            camera.position.addScaledVector(sideDir, velocity.x * delta * 0.1);
+    document.getElementById(
+        "score"
+    ).textContent =
 
-            prevTime = time;
-            renderer.render(scene, camera);
-        }
+        `SCORE ${score} · HITS ${hits} · ACCURACY ${acc}%`;
 
-        init();
-    </script>
+
+    renderer.render(
+        scene,
+        camera
+    );
+
+}
+
+
+loop();
+
+
+// ================================
+// RESIZE
+// ================================
+
+addEventListener(
+    "resize",
+    () => {
+
+        camera.aspect =
+            innerWidth /
+            innerHeight;
+
+
+        camera.updateProjectionMatrix();
+
+
+        renderer.setSize(
+            innerWidth,
+            innerHeight
+        );
+
+    }
+);
+
+</script>
+
 </body>
 </html>
 """
 
-components.html(game_html, height=720)
+components.html(
+    html,
+    height=800,
+    scrolling=False
+)
