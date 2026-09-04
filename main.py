@@ -4,9 +4,8 @@ import streamlit.components.v1 as components
 st.set_page_config(page_title="VALORANT Web Edition", page_icon="🎯", layout="wide")
 
 st.title("🎯 VALORANT 3D Web Edition")
-st.caption("아래 게임 화면을 클릭하면 마우스와 키보드로 직접 플레이할 수 있습니다.")
 
-# Three.js 기반 HTML5 3D 발로란트 게임 코드
+# 클릭 안내 화면 제거 & 즉시 실행 버전
 game_html = """
 <!DOCTYPE html>
 <html>
@@ -26,36 +25,27 @@ game_html = """
             padding: 15px; border-radius: 8px; border: 1px solid #333;
             pointer-events: none; z-index: 10;
         }
-        #instructions {
-            position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); text-align: center;
-            background: rgba(0,0,0,0.85); padding: 40px; border-radius: 12px;
-            cursor: pointer; z-index: 20; border: 2px solid #ff4655;
+        #guide {
+            position: absolute; top: 15px; right: 20px;
+            background: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 6px;
+            font-size: 14px; pointer-events: none; z-index: 10; border: 1px solid #444;
         }
-        #instructions h1 { color: #ff4655; margin-bottom: 10px; }
     </style>
 </head>
 <body>
     <div id="canvas-container">
         <div id="crosshair"></div>
+        <div id="guide">
+            <b>조작법:</b> W,A,S,D 이동 | 마우스 에임 | 좌클릭 사격 | E 대시 | C 연막
+        </div>
         <div id="hud">
             <div>HP: <span id="hp" style="color:#00ffcc;">100</span> | SHIELD: <span id="shield" style="color:#00aaff;">50</span></div>
             <div>AMMO: <span id="ammo" style="color:#ffcc00;">25 / 75</span></div>
-            <div style="font-size: 14px; margin-top: 5px; color: #aaa;">[E] 대시 | [C] 연막탄 | [R] 재장전</div>
             <div style="font-size: 16px; margin-top: 5px; color: #ff4655;">남은 적: <span id="enemies">3</span></div>
-        </div>
-        <div id="instructions">
-            <h1>클릭하여 게임 시작</h1>
-            <p><b>W, A, S, D</b> : 이동</p>
-            <p><b>마우스</b> : 에임 조작 (좌클릭 사격)</p>
-            <p><b>E 키</b> : 제트 순풍 (대시)</p>
-            <p><b>C 키</b> : 제트 연막탄</p>
-            <p><b>R 키</b> : 재장전</p>
-            <p style="color:#ff4655; margin-top:15px;">ESC 키를 누르면 마우스 커서가 해제됩니다.</p>
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         let camera, scene, renderer;
         let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
@@ -65,10 +55,7 @@ game_html = """
         
         let hp = 100, ammo = 25, totalAmmo = 75;
         let enemies = [];
-        let isLocked = false;
         let eCooldown = false;
-
-        const instructions = document.getElementById('instructions');
 
         function init() {
             scene = new THREE.Scene();
@@ -87,51 +74,37 @@ game_html = """
             dirLight.position.set(10, 20, 10);
             scene.add(dirLight);
 
-            // 맵 바닥
+            // 바닥
             const floorGeo = new THREE.PlaneGeometry(100, 100);
             const floorMat = new THREE.MeshStandardMaterial({ color: 0x333344 });
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
             scene.add(floor);
 
-            // 사이트 구조물 & 장애물
+            // 엄폐물
             const boxGeo = new THREE.BoxGeometry(3, 3, 3);
             const boxMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b });
-            const positions = [[5, 1.5, -10], [-5, 1.5, -15], [10, 1.5, -20], [-10, 1.5, -5]];
-            positions.forEach(pos => {
+            [[5, 1.5, -10], [-5, 1.5, -15], [10, 1.5, -20], [-10, 1.5, -5]].forEach(pos => {
                 const box = new THREE.Mesh(boxGeo, boxMat);
                 box.position.set(...pos);
                 scene.add(box);
             });
 
-            // 적 봇 생성
+            // 적 생성
             createEnemy(0, 1.5, -15);
             createEnemy(8, 1.5, -25);
             createEnemy(-8, 1.5, -20);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight * 0.85);
-            document.getElementById('canvas-container').appendChild(renderer.domElement);
+            const container = document.getElementById('canvas-container');
+            container.appendChild(renderer.domElement);
 
-            // 이벤트 리스너
-            instructions.addEventListener('click', () => {
-                document.body.requestPointerLock();
-            });
-
-            document.addEventListener('pointerlockchange', () => {
-                if (document.pointerLockElement === document.body) {
-                    isLocked = true;
-                    instructions.style.display = 'none';
-                } else {
-                    isLocked = false;
-                    instructions.style.display = 'block';
-                }
-            });
-
-            document.addEventListener('mousemove', onMouseMove);
-            document.addEventListener('keydown', onKeyDown);
-            document.addEventListener('keyup', onKeyUp);
-            document.addEventListener('mousedown', onMouseDown);
+            // 이벤트 리스너 (시작 클릭 화면 없이 바로 반응)
+            container.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('keydown', onKeyDown);
+            window.addEventListener('keyup', onKeyUp);
+            container.addEventListener('mousedown', onMouseDown);
 
             animate();
         }
@@ -139,13 +112,11 @@ game_html = """
         function createEnemy(x, y, z) {
             const group = new THREE.Group();
             
-            // 몸통
             const bodyGeo = new THREE.CylinderGeometry(0.5, 0.5, 2, 16);
             const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff4655 });
             const body = new THREE.Mesh(bodyGeo, bodyMat);
             group.add(body);
 
-            // 머리 (헤드샷 판정용)
             const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
             const headMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
             const head = new THREE.Mesh(headGeo, headMat);
@@ -160,19 +131,20 @@ game_html = """
 
         let pitch = 0, yaw = 0;
         function onMouseMove(event) {
-            if (!isLocked) return;
-            yaw -= event.movementX * 0.002;
-            pitch -= event.movementY * 0.002;
-            pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
-            
-            camera.rotation.identity();
-            camera.rotation.y = yaw;
-            camera.rotation.x = pitch;
-            camera.rotation.order = "YXZ";
+            // 화면 위에서 마우스를 움직이면 즉시 에임 회전
+            if (event.buttons === 1 || event.buttons === 0) {
+                yaw -= event.movementX * 0.003;
+                pitch -= event.movementY * 0.003;
+                pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+                
+                camera.rotation.identity();
+                camera.rotation.y = yaw;
+                camera.rotation.x = pitch;
+                camera.rotation.order = "YXZ";
+            }
         }
 
         function onKeyDown(e) {
-            if (!isLocked) return;
             switch (e.code) {
                 case 'KeyW': moveForward = true; break;
                 case 'KeyS': moveBackward = true; break;
@@ -194,11 +166,10 @@ game_html = """
         }
 
         function onMouseDown(e) {
-            if (!isLocked || e.button !== 0 || ammo <= 0) return;
+            if (ammo <= 0) return;
             ammo--;
             document.getElementById('ammo').innerText = `${ammo} / ${totalAmmo}`;
 
-            // 사격 레이캐스트
             const raycaster = new THREE.Raycaster();
             raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
@@ -285,5 +256,4 @@ game_html = """
 </html>
 """
 
-# Streamlit에 3D 게임 HTML 임베딩
 components.html(game_html, height=720)
