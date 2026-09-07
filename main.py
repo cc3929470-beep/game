@@ -4,7 +4,7 @@ import re
 
 # Page Config
 st.set_page_config(
-    page_title="fromis_9 가사맞추기",
+    page_title="fromis_9 가사맞추기 퀴즈",
     page_icon="🍀",
     layout="centered"
 )
@@ -132,104 +132,67 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 프로미스나인 디스코그래피 전체 곡 데이터베이스
+# 지정된 11개 곡 확장 데이터베이스
 # ----------------------------------------------------
 ALL_SONG_DATA = {
     "Vitamin ME": [
         {"lyrics": "I'ma make you happy, 달콤한 ___ fizz", "answer": "lemon", "hint": "상큼한 레몬 (영어)"},
-        {"lyrics": "Got you feeling ___, ooh, ooh, ooh", "answer": "new", "hint": "새로운 느낌의 영단어"}
+        {"lyrics": "Got you feeling ___, ooh, ooh, ooh", "answer": "new", "hint": "새로운 느낌의 영단어"},
+        {"lyrics": "톡 쏘는 탄산처럼 ___ 전해지는 걸", "answer": "찌릿", "hint": "전율이 느껴지는 느낌"},
+        {"lyrics": "너를 위한 특별한 ___ 에너지", "answer": "비타민", "hint": "영양소 이름"}
     ],
     "하얀 그리움": [
         {"lyrics": "하얀 눈이 내려와 내 맘을 ___ 해", "answer": "아프게", "hint": "초성: ㅇㅍㄱ"},
-        {"lyrics": "사라져 버린 눈처럼 그댄 ___ 흩어져", "answer": "눈물로", "hint": "초성: ㄴㅁㄹ"}
-    ],
-    "유리구두": [
-        {"lyrics": "어디 있나요 내 ___ 사람", "answer": "고마운", "hint": "초성: ㄱㅁㅇ"},
-        {"lyrics": "꼭 약속해 잊지 말고 ___", "answer": "기억해줘", "hint": "초성: ㄱㅇㅎㅈ"}
-    ],
-    "To Heart": [
-        {"lyrics": "작은 소원들이 모여 ___ 될 수 있게", "answer": "빛이", "hint": "초성: ㅂㅇ"},
-        {"lyrics": "조금 더 가깝게 내게 ___", "answer": "다가가", "hint": "초성: ㄷㄱㄱ"}
-    ],
-    "두근두근(DKDK)": [
-        {"lyrics": "자꾸만 너 때문에 ___ 맘이", "answer": "두근두근", "hint": "곡 제목과 동일"},
-        {"lyrics": "네가 없으면 나의 하루는 ___", "answer": "심심해", "hint": "지루하고 할 일이 없는 상태"}
-    ],
-    "22세기 소녀": [
-        {"lyrics": "너와 나 우리 둘만의 ___ 이야기", "answer": "비밀", "hint": "남들에게 말하지 않는 것"},
-        {"lyrics": "시간을 넘어 선 ___ 소녀", "answer": "22세기", "hint": "숫자 포함"}
-    ],
-    "CLOVER": [
-        {"lyrics": "행운을 빌어줄게 너의 ___ 위해", "answer": "내일을", "hint": "오늘 다음 날"}
-    ],
-    "LOVE BOMB": [
-        {"lyrics": "터진 듯해 ___ LOVE BOMB", "answer": "내 맘속에", "hint": "초성: ㄴ ㅁㅅㅇ"},
-        {"lyrics": "어쩌나 터져 버린 ___", "answer": "LOVE BOMB", "hint": "곡 제목"},
-        {"lyrics": "조금씩 타들어 가 ___", "answer": "심장에", "hint": "가슴 속 쿵쾅대는 곳"}
-    ],
-    "FUN!": [
-        {"lyrics": "재미있는 일들이 ___ 펼쳐질 거야", "answer": "매일", "hint": "Everyday"},
-        {"lyrics": "We need some ___ right now", "answer": "FUN", "hint": "곡 제목"}
-    ],
-    "LOVE RUM PUM PUM": [
-        {"lyrics": "쿵쿵 뛰는 내 심장이 ___", "answer": "소리쳐", "hint": "크게 외치는 행동"}
-    ],
-    "Feel Good (SECRET CODE)": [
-        {"lyrics": "나를 따라 해봐 ___ 느낌대로", "answer": "솔직한", "hint": "거짓이 없는"},
-        {"lyrics": "Feels so good 너와 나 ___ 시간", "answer": "지금", "hint": "Right now"}
-    ],
-    "Weather": [
-        {"lyrics": "오늘의 날씨는 너의 ___ 달라져", "answer": "기분에", "hint": "마음의 상태"}
-    ],
-    "WE GO": [
-        {"lyrics": "바람을 따라 ___ 나를 던져봐", "answer": "몸을", "hint": "초성: ㅁㅇ"},
-        {"lyrics": "Come on and ___ with me", "answer": "WE GO", "hint": "곡 제목"},
-        {"lyrics": "망설이지 마 ___", "answer": "Right now", "hint": "지금 당장"}
-    ],
-    "Airplane Mode": [
-        {"lyrics": "잠시 켜두자 ___ mode", "answer": "Airplane", "hint": "비행기 모드"}
-    ],
-    "Talk & Talk": [
-        {"lyrics": "밤새도록 나누는 너와 나의 ___", "answer": "이야기", "hint": "대화"}
-    ],
-    "DM": [
-        {"lyrics": "좋아해 너를 ___ 말해 버릴까", "answer": "솔직하게", "hint": "초성: ㅅㅈㅎㄱ"},
-        {"lyrics": "Doesn't matter ___ 숨길 수가 없는걸", "answer": "where", "hint": "장소를 뜻하는 영단어"},
-        {"lyrics": "내 맘을 전해줘 ___", "answer": "DM", "hint": "다이렉트 메시지 약자"}
-    ],
-    "Escape Room": [
-        {"lyrics": "아무도 모르게 ___ 문을 열어", "answer": "비밀의", "hint": "초성: ㅂㅁㅇ"},
-        {"lyrics": "이 밤이 지새도록 ___", "answer": "Escape Room", "hint": "방탈출 영문 제목"}
-    ],
-    "Stay This Way": [
-        {"lyrics": "바람이 불어오는 ___ 타고", "answer": "언덕을", "hint": "초성: ㅇㄷㅇ"},
-        {"lyrics": "Stay this way ___ 넘어로", "answer": "수평선", "hint": "바다와 하늘이 만나는 경계선"},
-        {"lyrics": "우리만의 ___ 비밀이야", "answer": "여름은", "hint": "계절 이름"}
-    ],
-    "Rewind": [
-        {"lyrics": "시간을 돌려 ___ 순간으로", "answer": "그때 그", "hint": "초성: ㄱㄸ ㄱ"},
-        {"lyrics": "다시 돌아가는 ___", "answer": "Rewind", "hint": "되돌리다라는 뜻의 제목"}
-    ],
-    "#menow": [
-        {"lyrics": "솔직하게 보여줄게 ___ 모습", "answer": "지금의", "hint": "현재의"},
-        {"lyrics": "I like me, ___ no matter what", "answer": "me now", "hint": "곡 제목 관련"}
-    ],
-    "Attitude": [
-        {"lyrics": "당당하게 걸어가 나의 ___대로", "answer": "스타일", "hint": "자신만의 방식"}
-    ],
-    "Prom Night": [
-        {"lyrics": "오늘 밤은 잊지 못할 ___", "answer": "Prom Night", "hint": "곡 제목"}
+        {"lyrics": "사라져 버린 눈처럼 그댄 ___ 흩어져", "answer": "눈물로", "hint": "초성: ㄴㅁㄹ"},
+        {"lyrics": "소중했던 기억들이 ___ 번져가네", "answer": "다시", "hint": "Again"},
+        {"lyrics": "차가운 겨울 바람에 널 ___ 본다", "answer": "부러", "hint": "외쳐 부르다"}
     ],
     "Supersonic": [
         {"lyrics": "속도를 높여 더 ___ 너에게 가고 있어", "answer": "빠르게", "hint": "초성: ㅂㄹㄱ"},
         {"lyrics": "Hit me up when you need some ___", "answer": "energy", "hint": "뜻: 에너지 (영어)"},
-        {"lyrics": "너의 맘속으로 ___", "answer": "Supersonic", "hint": "곡 제목과 동일!"}
+        {"lyrics": "너의 맘속으로 ___", "answer": "Supersonic", "hint": "곡 제목과 동일!"},
+        {"lyrics": "한계 따위는 넘어서 ___ 순간", "answer": "지름길", "hint": "빠르게 지르는 길"}
     ],
-    "Beat the Heat": [
-        {"lyrics": "뜨거운 태양 아래 ___ 날려버려", "answer": "더위를", "hint": "여름의 무더움"}
+    "DM": [
+        {"lyrics": "좋아해 너를 ___ 말해 버릴까", "answer": "솔직하게", "hint": "초성: ㅅㅈㅎㄱ"},
+        {"lyrics": "Doesn't matter ___ 숨길 수가 없는걸", "answer": "where", "hint": "장소를 뜻하는 영단어"},
+        {"lyrics": "내 맘을 전해줘 ___", "answer": "DM", "hint": "다이렉트 메시지 약자"},
+        {"lyrics": "새벽 세 시의 ___ 넘치는 마음", "answer": "감성", "hint": "마음의 결"}
     ],
-    "Love Me Back": [
-        {"lyrics": "너의 마음도 나와 같기를 ___", "answer": "바래", "hint": "희망하다"}
+    "Like You Better": [
+        {"lyrics": "널 닮은 파도에 ___, I can go anywhere", "answer": "dive", "hint": "뛰어들다 (영어)"},
+        {"lyrics": "I LIKE YOU BETTER, 널 ___이라 부를래", "answer": "내일", "hint": "오늘 다음 날"},
+        {"lyrics": "점점 더 길어지는 ___ 그림자", "answer": "노을", "hint": "해질녘의 상징"}
+    ],
+    "from": [
+        {"lyrics": "Dear darling 네 세상을 나로 가득히 ___ 수 있다면", "answer": "채울", "hint": "가득 채우다"},
+        {"lyrics": "추운 겨울에 만나 ___ 여름까지", "answer": "뜨거운", "hint": "여름의 온도"},
+        {"lyrics": "너에게 전하는 마지막 ___ 편지", "answer": "비밀", "hint": "숨겨진 것"}
+    ],
+    "너를 따라 너에게": [
+        {"lyrics": "여기 문이 열리면 나는 너를 ___", "answer": "따라가", "hint": "뒤를 쫓아가는 행동"},
+        {"lyrics": "하얀 ___처럼 네게 달려가고 있는 나를 향해서", "answer": "토끼", "hint": "귀여운 동물의 이름"},
+        {"lyrics": "발자국 따라 거니는 ___ 길", "answer": "동화속", "hint": "이야기 속"}
+    ],
+    "Rewind": [
+        {"lyrics": "시간을 돌려 ___ 순간으로", "answer": "그때 그", "hint": "초성: ㄱㄸ ㄱ"},
+        {"lyrics": "다시 돌아가는 ___", "answer": "Rewind", "hint": "되돌리다라는 뜻의 제목"},
+        {"lyrics": "거꾸로 흐르는 ___ 시계", "answer": "모래", "hint": "시간을 재는 도구"}
+    ],
+    "WE GO": [
+        {"lyrics": "바람을 따라 ___ 나를 던져봐", "answer": "몸을", "hint": "초성: ㅁㅇ"},
+        {"lyrics": "Come on and ___ with me", "answer": "WE GO", "hint": "곡 제목"},
+        {"lyrics": "시원한 파도 소리 ___ 속으로", "answer": "바다", "hint": "넓고 푸른 곳"}
+    ],
+    "Stay This Way": [
+        {"lyrics": "바람이 불어오는 ___ 타고", "answer": "언덕을", "hint": "초성: ㅇㄷㅇ"},
+        {"lyrics": "우리만의 ___ 비밀이야", "answer": "여름은", "hint": "계절 이름"},
+        {"lyrics": "노을빛 젖어드는 ___ 해변", "answer": "석양", "hint": "해 질 녘 지는 해"}
+    ],
+    "Sky Runner": [
+        {"lyrics": "Fly high, you and I, Fly high in the ___", "answer": "sky", "hint": "하늘 (영어)"},
+        {"lyrics": "We are sky runners, we'll never ___", "answer": "fall", "hint": "쓰러지다/떨어지다 (영어)"},
+        {"lyrics": "구름 위를 달리는 ___ 발걸음", "answer": "가벼운", "hint": "무겁지 않은"}
     ]
 }
 
@@ -252,13 +215,13 @@ if "show_hint" not in st.session_state:
 st.markdown("""
 <div class="header-card">
     <h1>🍀 fromis_9 가사맞추기</h1>
-    <p>상큼함 터지는 프로미스나인 전곡 가사 맞추기 퀴즈!</p>
+    <p>지정된 11개 인기곡 가사 맞추기 퀴즈!</p>
 </div>
 """, unsafe_allow_html=True)
 
 # Sidebar
 st.sidebar.markdown("### 🎵 곡 선택")
-song_options = ["✨ 전체 랜덤 (전곡 모드)"] + list(ALL_SONG_DATA.keys())
+song_options = ["✨ 전체 랜덤 모드"] + list(ALL_SONG_DATA.keys())
 selected_song = st.sidebar.selectbox("퀴즈를 풀 곡 또는 모드를 선택하세요!", song_options)
 
 st.sidebar.markdown("---")
@@ -280,10 +243,10 @@ if "last_mode" not in st.session_state or st.session_state.last_mode != selected
     st.session_state.last_mode = selected_song
     st.session_state.current_q_index = 0
     st.session_state.show_hint = False
-    if selected_song == "✨ 전체 랜덤 (전곡 모드)":
+    if selected_song == "✨ 전체 랜덤 모드":
         st.session_state.random_queue = generate_all_questions()
 
-if selected_song == "✨ 전체 랜덤 (전곡 모드)":
+if selected_song == "✨ 전체 랜덤 모드":
     if not st.session_state.random_queue:
         st.session_state.random_queue = generate_all_questions()
     
@@ -309,7 +272,7 @@ st.markdown('<div class="quiz-card">', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #555555; font-weight: 600;'>가사의 빈칸 '___' 에 들어갈 단어는?</p>", unsafe_allow_html=True)
 st.markdown(f'<div class="lyrics-box">"{current_q["lyrics"]}"</div>', unsafe_allow_html=True)
 
-# Form을 사용하여 Enter 키 및 정답 제출 안정화
+# Form 구조
 with st.form(key=f"quiz_form_{st.session_state.current_q_index}"):
     user_input = st.text_input("정답 입력", placeholder="정답을 입력하고 Enter 또는 [정답 확인]을 누르세요")
     
@@ -353,7 +316,7 @@ with col_prev:
         st.session_state.combo = 0
         st.session_state.current_q_index = 0
         st.session_state.show_hint = False
-        if selected_song == "✨ 전체 랜덤 (전곡 모드)":
+        if selected_song == "✨ 전체 랜덤 모드":
             st.session_state.random_queue = generate_all_questions()
         st.rerun()
 
