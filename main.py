@@ -9,7 +9,7 @@ st.set_page_config(
     layout="centered"
 )
 
-# Custom CSS (왼쪽 글씨 및 일반 텍스트 검은색 적용)
+# Custom CSS
 st.markdown("""
 <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -20,7 +20,7 @@ st.markdown("""
 
     .stApp {
         background: linear-gradient(180deg, #FFFDF0 0%, #FFF5F7 100%);
-        color: #111111 !important; /* 기본 글자색을 진한 검은색으로 설정 */
+        color: #111111 !important;
     }
     
     .header-card {
@@ -81,7 +81,6 @@ st.markdown("""
         font-size: 0.9rem;
     }
 
-    /* Streamlit 기본 텍스트, 마크다운, 라벨 검은색 지정 */
     p, span, label, .stMarkdown {
         color: #111111 !important;
     }
@@ -103,7 +102,7 @@ st.markdown("""
         box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.2) !important;
     }
 
-    .stButton > button {
+    .stButton > button, div[data-testid="stForm"] button {
         background: linear-gradient(135deg, #FF6B8B 0%, #FF8E53 100%);
         color: white !important;
         border: none;
@@ -115,9 +114,14 @@ st.markdown("""
         transition: all 0.2s ease-in-out;
         width: 100%;
     }
-    .stButton > button:hover {
+    .stButton > button:hover, div[data-testid="stForm"] button:hover {
         transform: translateY(-2px);
         box-shadow: 0 8px 20px rgba(255, 107, 139, 0.4);
+    }
+    
+    div[data-testid="stForm"] {
+        border: none !important;
+        padding: 0 !important;
     }
     
     section[data-testid="stSidebar"] {
@@ -128,7 +132,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ----------------------------------------------------
-# 프로미스나인 디스코그래피 전체 곡 데이터베이스 (최신곡 포함)
+# 프로미스나인 디스코그래피 전체 곡 데이터베이스
 # ----------------------------------------------------
 ALL_SONG_DATA = {
     "Vitamin ME": [
@@ -241,6 +245,8 @@ if "current_q_index" not in st.session_state:
     st.session_state.current_q_index = 0
 if "random_queue" not in st.session_state:
     st.session_state.random_queue = []
+if "show_hint" not in st.session_state:
+    st.session_state.show_hint = False
 
 # Header
 st.markdown("""
@@ -273,6 +279,7 @@ def generate_all_questions():
 if "last_mode" not in st.session_state or st.session_state.last_mode != selected_song:
     st.session_state.last_mode = selected_song
     st.session_state.current_q_index = 0
+    st.session_state.show_hint = False
     if selected_song == "✨ 전체 랜덤 (전곡 모드)":
         st.session_state.random_queue = generate_all_questions()
 
@@ -302,19 +309,23 @@ st.markdown('<div class="quiz-card">', unsafe_allow_html=True)
 st.markdown("<p style='text-align: center; color: #555555; font-weight: 600;'>가사의 빈칸 '___' 에 들어갈 단어는?</p>", unsafe_allow_html=True)
 st.markdown(f'<div class="lyrics-box">"{current_q["lyrics"]}"</div>', unsafe_allow_html=True)
 
-# User Input
-user_input = st.text_input("정답 입력", placeholder="정답을 입력하고 Enter를 누르세요", key=f"q_input_{st.session_state.current_q_index}")
+# Form을 사용하여 Enter 키 및 정답 제출 안정화
+with st.form(key=f"quiz_form_{st.session_state.current_q_index}"):
+    user_input = st.text_input("정답 입력", placeholder="정답을 입력하고 Enter 또는 [정답 확인]을 누르세요")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        submit_btn = st.form_submit_button("정답 확인 ✨")
+    with col_btn2:
+        hint_btn = st.form_submit_button("힌트 보기 💡")
 
-col1, col2 = st.columns([1, 1])
+if hint_btn:
+    st.session_state.show_hint = True
 
-with col1:
-    if st.button("힌트 보기 💡"):
-        st.info(f"🔑 {current_q['hint']}")
+if st.session_state.show_hint:
+    st.info(f"🔑 **힌트**: {current_q['hint']}")
 
-with col2:
-    check_btn = st.button("정답 확인 ✨")
-
-if check_btn:
+if submit_btn:
     if user_input.strip() == "":
         st.warning("가사를 입력해주세요!")
     else:
@@ -341,6 +352,7 @@ with col_prev:
         st.session_state.score = 0
         st.session_state.combo = 0
         st.session_state.current_q_index = 0
+        st.session_state.show_hint = False
         if selected_song == "✨ 전체 랜덤 (전곡 모드)":
             st.session_state.random_queue = generate_all_questions()
         st.rerun()
@@ -348,4 +360,5 @@ with col_prev:
 with col_next:
     if st.button("다음 문제로 ➡️"):
         st.session_state.current_q_index += 1
+        st.session_state.show_hint = False
         st.rerun()
